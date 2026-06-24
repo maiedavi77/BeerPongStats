@@ -366,9 +366,6 @@
     document.getElementById("app").style.display="flex";
     var name=(state.profile&&state.profile.display_name)||(state.session&&state.session.user.email)||"";
     document.getElementById("user-badge").textContent=name;
-    // Hide People tab for non-admins
-    var peopleTab=document.querySelector('.tab[data-tab="people"]');
-    if(peopleTab) peopleTab.style.display=isAdmin()?"flex":"none";
     renderTab("play");
   }
 
@@ -443,9 +440,6 @@
     state.session=null; state.profile=null;
     state.games=[]; state.current=null; state.undoStack=[];
     state.people=[]; state.trichters=[];
-    // Always hide People tab on sign-out
-    var pt=document.querySelector('.tab[data-tab="people"]');
-    if(pt) pt.style.display="none";
     showLoginScreen(false);
   });
 
@@ -472,7 +466,6 @@
   });
 
   function renderTab(tab){
-    if(tab==="people"&&!isAdmin()) tab="play";
     state.tab=tab; state.current=null;
     document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});
     document.getElementById("fab").style.display=(tab==="play"||tab==="trichter")?"flex":"none";
@@ -604,8 +597,11 @@
       if(!tA.length||!tB.length){toast("Each team needs at least one player");return;}
       var ov=tA.filter(function(n){return tB.some(function(b){return b.toLowerCase()===n.toLowerCase();});});
       if(ov.length){toast(ov[0]+" can't be on both teams");return;}
+      // Read name inputs BEFORE removing the sheet from the DOM
+      var nameA=document.getElementById("nameA").value.trim()||"Team A";
+      var nameB=document.getElementById("nameB").value.trim()||"Team B";
       bd.remove();
-      startNewGame(tA,tB,document.getElementById("nameA").value.trim()||"Team A",document.getElementById("nameB").value.trim()||"Team B",cupCount,firstTeam);
+      startNewGame(tA,tB,nameA,nameB,cupCount,firstTeam);
     });
   }
 
