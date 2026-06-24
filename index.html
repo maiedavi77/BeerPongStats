@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+<title>Racked</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#17111F; --surface:#231A2E; --surface-2:#2C2138; --surface-3:#372A45;
+    --line:rgba(244,236,224,0.10); --text:#F4ECE0; --text-dim:#B6A6C4; --text-faint:#83738F;
+    --red:#E2402D; --red-dim:rgba(226,64,45,0.18);
+    --blue:#3D86C6; --blue-dim:rgba(61,134,198,0.18);
+    --amber:#F2A93B; --amber-dim:rgba(242,169,59,0.18);
+    --green:#74B687; --green-dim:rgba(116,182,135,0.18);
+    --purple:#9B6FD4; --purple-dim:rgba(155,111,212,0.18);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(circle at 18% 8%,rgba(226,64,45,0.10),transparent 40%),radial-gradient(circle at 85% 0%,rgba(61,134,198,0.10),transparent 38%),var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+  button,input{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+
+  /* ===== LOADING SPINNER ===== */
+  #loading-screen{position:fixed;inset:0;z-index:90;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+  #loading-screen.hidden{display:none;}
+  .spinner{width:36px;height:36px;border:3px solid var(--surface-3);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ===== LOGIN SCREEN ===== */
+  #login-screen{display:none;position:fixed;inset:0;z-index:80;background:radial-gradient(circle at 18% 8%,rgba(226,64,45,0.12),transparent 40%),radial-gradient(circle at 85% 0%,rgba(61,134,198,0.12),transparent 38%),var(--bg);align-items:center;justify-content:center;padding:24px;}
+  #login-screen.visible{display:flex;}
+  .login-card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:32px 24px 28px;}
+  .login-brand{text-align:center;margin-bottom:28px;}
+  .login-brand h1{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:3px;margin:0;line-height:1;}
+  .login-brand h1 span{color:var(--red);}
+  .login-brand small{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-faint);}
+  .login-field{margin-bottom:14px;}
+  .login-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px;}
+  .login-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:13px 14px;font-size:15px;}
+  .login-field input:focus{outline:none;border-color:var(--amber);}
+  .login-error{background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:10px 13px;font-size:13px;color:#F2A093;margin-bottom:14px;display:none;}
+  .login-error.visible{display:block;}
+  .must-change-banner{background:var(--amber-dim);border:1px solid rgba(242,169,59,0.4);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--amber);margin-bottom:16px;display:none;line-height:1.5;}
+  .must-change-banner.visible{display:block;}
+  .pw-field{margin-bottom:12px;}
+  .pw-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
+  .pw-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:12px 13px;font-size:14px;}
+  .pw-field input:focus{outline:none;border-color:var(--amber);}
+
+  /* ===== APP SHELL ===== */
+  #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:78px;}
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(23,17,31,0.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 18px 10px;display:flex;align-items:center;justify-content:space-between;}
+  .brand h1{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:1.5px;margin:0;line-height:0.9;}
+  .brand h1 span{color:var(--red);}
+  .brand small{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-faint);}
+  .topbar-right{display:flex;align-items:center;gap:8px;}
+  .user-badge{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);padding:5px 9px;border-radius:99px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .signout-btn{background:none;border:1px solid var(--line);color:var(--text-faint);border-radius:99px;padding:5px 9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;cursor:pointer;}
+  .signout-btn:hover{border-color:var(--red);color:#E8897C;}
+
+  /* ===== LAYOUT ===== */
+  .screen{padding:18px 18px 24px;flex:1;}
+  .section-title{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-faint);margin:22px 0 10px;}
+  .section-title:first-child{margin-top:0;}
+  .empty{text-align:center;padding:40px 16px;color:var(--text-faint);border:1px dashed var(--line);border-radius:var(--radius);}
+  .empty .big{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text-dim);display:block;margin-bottom:6px;}
+
+  /* ===== BUTTONS ===== */
+  .btn{border:none;border-radius:11px;padding:13px 18px;font-weight:600;font-size:14.5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .12s ease;}
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--amber);color:#241405;}
+  .btn-primary:disabled{opacity:0.35;cursor:not-allowed;}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line);}
+  .btn-danger{background:var(--red);color:#fff;}
+  .btn-danger-ghost{background:transparent;color:#E8897C;border:1px solid rgba(226,64,45,0.35);}
+  .btn-block{width:100%;}
+  .fab{position:fixed;right:18px;bottom:96px;z-index:25;width:58px;height:58px;border-radius:50%;background:var(--amber);color:#241405;border:none;box-shadow:0 10px 24px rgba(242,169,59,0.35);font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+  /* ===== TABBAR ===== */
+  .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:25;background:rgba(23,17,31,0.95);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;justify-content:center;}
+  .tabbar-inner{max-width:480px;width:100%;display:flex;}
+  .tab{flex:1;background:none;border:none;color:var(--text-faint);padding:8px 2px 11px;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.3px;text-transform:uppercase;cursor:pointer;}
+  .tab.active{color:var(--amber);}
+  .tab svg{width:18px;height:18px;}
+
+  /* ===== GAME CARDS ===== */
+  .game-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;}
+  .game-card:active{background:var(--surface-2);}
+  .gc-top{display:flex;align-items:center;justify-content:space-between;}
+  .gc-teams{font-weight:600;font-size:14.5px;}
+  .gc-teams .vs{color:var(--text-faint);font-weight:500;font-size:12px;margin:0 6px;}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.8px;text-transform:uppercase;padding:4px 8px;border-radius:99px;}
+  .badge.live{background:var(--green-dim);color:var(--green);}
+  .badge.done{background:var(--surface-3);color:var(--text-dim);}
+  .gc-meta{font-size:12px;color:var(--text-faint);display:flex;gap:10px;margin-top:6px;}
+
+  /* ===== SHEETS ===== */
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(10,7,14,0.65);z-index:40;display:flex;align-items:flex-end;justify-content:center;}
+  .sheet{background:var(--bg);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:none;padding:18px 18px 28px;animation:slideup .22s ease-out;}
+  @keyframes slideup{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-handle{width:36px;height:4px;background:var(--surface-3);border-radius:99px;margin:0 auto 14px;}
+  .sheet h2{font-family:'Bebas Neue',sans-serif;font-size:24px;margin:0 0 16px;}
+  .confirm-msg{color:var(--text-dim);font-size:14px;line-height:1.6;margin:0 0 22px;}
+
+  /* ===== NEW GAME ===== */
+  .team-name-input{width:100%;background:transparent;border:none;border-bottom:2px solid var(--line);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.5px;padding:4px 0 6px;margin-bottom:12px;}
+  .team-name-input:focus{outline:none;border-bottom-color:var(--amber);}
+  .team-block{border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .team-block.A{border-color:rgba(226,64,45,0.35);}
+  .team-block.B{border-color:rgba(61,134,198,0.35);}
+  .team-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
+  .team-label .sw{width:9px;height:9px;border-radius:50%;}
+  .team-label.A .sw{background:var(--red);}
+  .team-label.B .sw{background:var(--blue);}
+  .player-row{display:flex;gap:8px;margin-bottom:8px;}
+  .player-row .rm{background:var(--surface-2);border:1px solid var(--line);color:var(--text-faint);border-radius:9px;width:38px;flex:none;cursor:pointer;}
+  .add-player-link{background:none;border:none;color:var(--amber);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;}
+  .pill-row{display:flex;gap:8px;}
+  .pill{flex:1;text-align:center;padding:11px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13.5px;}
+  .pill.sel{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+  .combo-wrap{position:relative;flex:1;}
+  .combo-wrap input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:11px 12px;font-size:14px;}
+  .combo-suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface-3);border:1px solid var(--line);border-radius:9px;max-height:170px;overflow-y:auto;z-index:50;box-shadow:0 10px 24px rgba(0,0,0,0.55);}
+  .combo-item{padding:10px 12px;font-size:13.5px;cursor:pointer;color:var(--text);border-bottom:1px solid var(--line);}
+  .combo-item:last-child{border-bottom:none;}
+  .combo-item:active,.combo-item:hover{background:var(--surface-2);}
+  .combo-item.temp{color:var(--amber);font-style:italic;font-size:12.5px;}
+
+  /* ===== LIVE GAME ===== */
+  .live-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .back-link{background:none;border:none;color:var(--text-dim);font-size:13px;cursor:pointer;padding:4px 0;}
+  .step-pill{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--amber);background:var(--amber-dim);padding:5px 10px;border-radius:99px;}
+  .score-big{font-family:'Bebas Neue',sans-serif;font-size:38px;text-align:center;line-height:1;display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 14px;}
+  .score-big .num.A{color:var(--red);}
+  .score-big .num.B{color:var(--blue);}
+  .score-big .dash{color:var(--text-faint);font-size:22px;}
+  .recap{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--text-dim);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .recap b{color:var(--text);}
+  .pyramid-zone{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 10px 14px;}
+  .pyramid-zone.connected{border-radius:var(--radius) var(--radius) 0 0;}
+  .pz-label{text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:12px;}
+  .pz-label b{color:var(--amber);}
+  .pyramid-row{display:flex;justify-content:center;gap:9px;margin-bottom:9px;}
+  .cup-wrap{position:relative;}
+  .cup{width:34px;height:29px;clip-path:polygon(14% 0%,86% 0%,100% 100%,0% 100%);cursor:pointer;transition:transform .3s ease,opacity .3s ease,box-shadow .2s ease;flex:none;}
+  .cup.A{background:linear-gradient(180deg,#F2604B,var(--red));}
+  .cup.B{background:linear-gradient(180deg,#5AA3DE,var(--blue));}
+  .cup.cup--hit{transform:rotate(95deg) translateY(6px);opacity:0.16;pointer-events:none;}
+  .cup.cup--pending{box-shadow:0 0 0 3px var(--amber);animation:pendpulse 1s ease-in-out infinite;}
+  .cup.cup--bonus-sel{box-shadow:0 0 0 3px var(--green),0 0 16px rgba(116,182,135,0.65);transform:scale(0.9);}
+  .cup:active:not(.cup--hit):not(.cup--bonus-sel){transform:scale(0.88);}
+  .bonus-check{position:absolute;top:-8px;right:-7px;width:17px;height:17px;border-radius:50%;background:var(--green);color:#0E2417;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--bg);animation:popin .18s ease-out;}
+  @keyframes popin{from{transform:scale(0);}to{transform:scale(1);}}
+  @keyframes pendpulse{0%,100%{box-shadow:0 0 0 3px var(--amber);}50%{box-shadow:0 0 0 3px rgba(242,169,59,0.3);}}
+  .controls{background:var(--surface-2);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+  .ctl-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);text-align:center;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;}
+  .chip{padding:8px 13px;border-radius:99px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);background:var(--surface);color:var(--text-dim);}
+  .chip.active{background:var(--amber);color:#241405;border-color:var(--amber);}
+  .chip .temp-tag{opacity:0.65;font-size:10px;font-weight:500;margin-left:3px;}
+  .suggest-hint{text-align:center;font-size:11px;color:var(--text-faint);}
+  .dodge-row{display:flex;justify-content:center;}
+  .dodge-toggle{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:99px;border:1.5px dashed var(--line);background:var(--surface);color:var(--text-dim);font-size:12.5px;font-weight:600;cursor:pointer;}
+  .dodge-toggle.armed{background:var(--red-dim);border-color:var(--red);border-style:solid;color:#F2A093;}
+  .action-row{display:flex;gap:8px;}
+  .miss-btn{flex:1;background:var(--surface);border:1.5px dashed var(--line);color:var(--text-dim);border-radius:10px;padding:12px;font-weight:600;font-size:13px;cursor:pointer;}
+  .miss-btn:active{background:var(--surface-3);}
+  .end-controls{display:flex;gap:8px;margin-top:14px;}
+  .end-controls .btn{flex:1;}
+  .bonus-banner{text-align:center;padding:12px;border-radius:10px;margin-bottom:10px;background:var(--green-dim);border:1px solid rgba(116,182,135,0.4);font-size:13px;color:var(--green);font-weight:600;}
+  .bonus-count{text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);}
+  .result-banner{text-align:center;padding:18px;border-radius:var(--radius);margin-bottom:14px;background:var(--green-dim);border:1px solid rgba(116,182,135,0.4);}
+  .result-banner .big{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--green);}
+  .result-banner small{color:var(--text-dim);font-size:12.5px;}
+  .feed{margin-top:16px;}
+  .feed-line{font-size:12.5px;color:var(--text-dim);padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;}
+  .feed-line:last-child{border-bottom:none;}
+  .feed-line .t{color:var(--text-faint);font-family:'JetBrains Mono',monospace;font-size:10.5px;flex:none;}
+
+  /* ===== LEADERBOARD ===== */
+  .sort-row{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;}
+  .sort-chip{flex:none;padding:8px 12px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface-2);border:1px solid var(--line);color:var(--text-faint);}
+  .sort-chip.sel{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+  .lb-row{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer;}
+  .lb-row:active{background:var(--surface-2);}
+  .lb-rank{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--text-faint);width:24px;text-align:center;flex:none;}
+  .lb-rank.gold{color:var(--amber);}
+  .lb-name{flex:1;min-width:0;}
+  .lb-name .nm{font-weight:600;font-size:14.5px;}
+  .lb-name .sub{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .lb-stat{text-align:right;flex:none;}
+  .lb-stat .v{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;}
+  .lb-stat .l{font-size:9.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;}
+
+  /* ===== PROFILE ===== */
+  .profile-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px;}
+  .profile-stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 6px;text-align:center;}
+  .profile-stat .v{font-family:'Bebas Neue',sans-serif;font-size:22px;}
+  .profile-stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.4px;margin-top:2px;}
+  .heat-cup-wrap{position:relative;}
+  .cup.heat{cursor:default;}
+  .cup.heat.h0{background:var(--surface-3);opacity:0.45;}
+  .cup.heat.h1{background:linear-gradient(180deg,#F2A93B,#caa055);}
+  .cup.heat.h2{background:linear-gradient(180deg,#F2804B,#d9622e);}
+  .cup.heat.h3{background:linear-gradient(180deg,#F2604B,var(--red));}
+  .heat-count{position:absolute;top:-7px;right:-6px;background:var(--bg);border:1px solid var(--line);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 4px;border-radius:99px;}
+
+  /* ===== PEOPLE ===== */
+  .people-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;}
+  .people-row .nm{font-weight:600;font-size:14.5px;}
+  .people-row .em{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+  .you-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;padding:3px 7px;border-radius:99px;background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple);margin-left:7px;vertical-align:middle;}
+  .invite-error{display:none;margin-top:10px;background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:9px 12px;font-size:13px;color:#F2A093;}
+  .invite-error.visible{display:block;}
+  .invite-field{margin-bottom:10px;}
+  .invite-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:11px 12px;font-size:14px;}
+  .invite-field input:focus{outline:none;border-color:var(--amber);}
+
+  /* ===== TRICHTER ===== */
+  .trichter-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;}
+  .trichter-row .t-person{flex:1;font-weight:600;font-size:14px;}
+  .trichter-row .t-dur{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--amber);font-weight:600;}
+  .trichter-row .t-ts{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);}
+  .stopwatch{font-family:'Bebas Neue',sans-serif;font-size:68px;text-align:center;letter-spacing:2px;color:var(--amber);line-height:1;margin:18px 0 22px;}
+  .stopwatch.running{color:var(--green);}
+  .sw-hint{text-align:center;font-size:12px;color:var(--text-faint);margin-top:-14px;margin-bottom:16px;}
+
+  /* ===== TOASTS ===== */
+  #toast-zone{position:fixed;top:70px;left:0;right:0;z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
+  .toast{background:var(--surface-3);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:99px;font-size:12.5px;animation:toastin .25s ease-out;}
+  @keyframes toastin{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body>
+<div id="toast-zone"></div>
+
+<!-- Spinner shown while Supabase checks the existing session -->
+<div id="loading-screen"><div class="spinner"></div></div>
+
+<!-- Login / force-change-password screen -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <h1>R<span>A</span>CKED</h1>
+      <small>beer pong tracker</small>
+    </div>
+    <div class="must-change-banner" id="must-change-banner">
+      Your admin set a temporary password. Please choose a new one to continue.
+    </div>
+    <div class="login-error" id="login-error"></div>
+
+    <!-- Step 1: sign in -->
+    <div id="login-step-1">
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+    </div>
+
+    <!-- Step 2: force change password -->
+    <div id="login-step-2" style="display:none;">
+      <div class="pw-field">
+        <label>New password</label>
+        <input type="password" id="new-pw" placeholder="At least 8 characters" autocomplete="new-password" />
+      </div>
+      <div class="pw-field">
+        <label>Confirm new password</label>
+        <input type="password" id="new-pw-confirm" placeholder="Repeat password" autocomplete="new-password" />
+      </div>
+      <button class="btn btn-primary btn-block" id="change-pw-btn">Set password &amp; continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main app (hidden until authenticated) -->
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <div class="brand"><h1>R<span>A</span>CKED</h1><small>beer pong tracker</small></div>
+    <div class="topbar-right">
+      <span class="user-badge" id="user-badge"></span>
+      <button class="signout-btn" id="signout-btn">Sign out</button>
+    </div>
+  </div>
+  <div class="screen" id="screen"></div>
+  <button class="fab" id="fab" title="New">+</button>
+  <div class="tabbar"><div class="tabbar-inner">
+    <button class="tab" data-tab="play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21h14M8 21V9a4 4 0 0 1 8 0v12M8 9h8M5 9l1-5h12l1 5"/></svg>Play</button>
+    <button class="tab" data-tab="leaderboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4a2 2 0 0 0 0 4h3M17 6h3a2 2 0 0 1 0 4h-3"/></svg>Board</button>
+    <button class="tab" data-tab="trichter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="9" ry="2.5"/><path d="M3 5c0 1.4 4 2.5 9 2.5S21 6.4 21 5"/><path d="M21 5l-3.5 9H6.5L3 5"/><path d="M8.5 14v6l7-3v-3"/></svg>Trichter</button>
+    <button class="tab" data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>History</button>
+    <button class="tab" data-tab="people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M15 11h6M18 8v6"/></svg>People</button>
+  </div></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+
+  var SUPABASE_URL  = "https://oxrxctztriezuonduteg.supabase.co";
+  var SUPABASE_ANON = "sb_publishable_Xmiu_3UWoQpbojm4lbQptQ_DptnZGZr";
+
+  /* ============================================================
+     SUPABASE CLIENT
+     ============================================================ */
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  /* ============================================================
+     STATE
+     ============================================================ */
+  var state = {
+    tab:"play", games:[], current:null, undoStack:[], lbSort:"winpct",
+    people:[], trichters:[],
+    session:null, profile:null   // populated after sign-in
+  };
+
+  /* ============================================================
+     UTILITIES
+     ============================================================ */
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+  function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];}); }
+  function toast(msg){ var z=document.getElementById("toast-zone"),t=document.createElement("div"); t.className="toast"; t.textContent=msg; z.appendChild(t); setTimeout(function(){t.remove();},2600); }
+  function rowSizes(c){ return c===6?[3,2,1]:[4,3,2,1]; }
+  function cupRows(c){ var sizes=rowSizes(c),idx=0,rows=[]; sizes.forEach(function(s){var row=[];for(var i=0;i<s;i++)row.push(idx++);rows.push(row);}); return rows; }
+  function teamName(g,team){ return team==="A"?(g.teamNameA||"Team A"):(g.teamNameB||"Team B"); }
+  function fmtMs(ms){
+    var total=Math.floor(ms/100),s=Math.floor(total/10),d=total%10;
+    var m=Math.floor(s/60); s=s%60;
+    return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+"."+d;
+  }
+  function timeShort(ts){ var d=new Date(ts); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0"); }
+  function isAdmin(){ return !!(state.profile && state.profile.is_admin); }
+
+  /* ============================================================
+     AUTH HELPERS
+     ============================================================ */
+  function showLoading(){ document.getElementById("loading-screen").classList.remove("hidden"); }
+  function hideLoading(){ document.getElementById("loading-screen").classList.add("hidden"); }
+
+  function setAuthError(msg){
+    var el=document.getElementById("login-error");
+    el.textContent=msg||""; el.classList.toggle("visible",!!msg);
+  }
+
+  function showLoginScreen(mustChange){
+    document.getElementById("app").style.display="none";
+    document.getElementById("login-screen").classList.add("visible");
+    document.getElementById("must-change-banner").classList.toggle("visible",!!mustChange);
+    document.getElementById("login-step-1").style.display=mustChange?"none":"";
+    document.getElementById("login-step-2").style.display=mustChange?"":"none";
+    setAuthError("");
+  }
+
+  function showApp(){
+    document.getElementById("login-screen").classList.remove("visible");
+    document.getElementById("app").style.display="flex";
+    var name=(state.profile&&state.profile.display_name)||(state.session&&state.session.user.email)||"";
+    document.getElementById("user-badge").textContent=name;
+    renderTab("play");
+  }
+
+  async function fetchProfile(userId){
+    var r=await sb.from("profiles").select("*").eq("id",userId).single();
+    return r.data||null;
+  }
+
+  async function loadPeopleFromSupabase(){
+    var r=await sb.from("profiles").select("id,display_name,email").order("display_name");
+    if(r.data){
+      state.people=r.data.map(function(p){return{name:p.display_name,email:p.email,id:p.id};});
+    }
+  }
+
+  async function onSignedIn(session){
+    state.session=session;
+    state.profile=await fetchProfile(session.user.id);
+    hideLoading();
+    if(state.profile&&state.profile.must_change_password){
+      showLoginScreen(true);
+    } else {
+      await loadPeopleFromSupabase();
+      showApp();
+    }
+  }
+
+  /* ============================================================
+     LOGIN BUTTON
+     ============================================================ */
+  document.getElementById("login-btn").addEventListener("click",async function(){
+    var email=document.getElementById("login-email").value.trim();
+    var pw=document.getElementById("login-password").value;
+    if(!email||!pw){setAuthError("Email and password are required.");return;}
+    setAuthError("");
+    this.disabled=true; this.textContent="Signing in\u2026";
+    var r=await sb.auth.signInWithPassword({email:email,password:pw});
+    this.disabled=false; this.textContent="Sign in";
+    if(r.error){setAuthError(r.error.message);return;}
+    await onSignedIn(r.data.session);
+  });
+
+  document.getElementById("login-password").addEventListener("keydown",function(e){
+    if(e.key==="Enter")document.getElementById("login-btn").click();
+  });
+
+  /* ============================================================
+     FORCE-CHANGE PASSWORD BUTTON
+     ============================================================ */
+  document.getElementById("change-pw-btn").addEventListener("click",async function(){
+    var pw=document.getElementById("new-pw").value;
+    var pw2=document.getElementById("new-pw-confirm").value;
+    if(pw.length<8){setAuthError("Password must be at least 8 characters.");return;}
+    if(pw!==pw2){setAuthError("Passwords don\u2019t match.");return;}
+    setAuthError("");
+    this.disabled=true; this.textContent="Saving\u2026";
+    var r=await sb.auth.updateUser({password:pw});
+    if(r.error){setAuthError(r.error.message);this.disabled=false;this.textContent="Set password & continue";return;}
+    await sb.from("profiles").update({must_change_password:false}).eq("id",state.session.user.id);
+    if(state.profile)state.profile.must_change_password=false;
+    toast("Password updated \u2014 welcome!");
+    await loadPeopleFromSupabase();
+    showApp();
+    this.disabled=false; this.textContent="Set password & continue";
+  });
+
+  /* ============================================================
+     SIGN OUT
+     ============================================================ */
+  document.getElementById("signout-btn").addEventListener("click",async function(){
+    await sb.auth.signOut();
+    state.session=null; state.profile=null;
+    state.games=[]; state.current=null; state.undoStack=[];
+    state.people=[]; state.trichters=[];
+    showLoginScreen(false);
+  });
+
+  /* ============================================================
+     SUPABASE AUTH STATE LISTENER
+     Fires once on page load (INITIAL_SESSION) and on any change.
+     ============================================================ */
+  sb.auth.onAuthStateChange(async function(event,session){
+    if(event==="INITIAL_SESSION"){
+      if(session){ await onSignedIn(session); }
+      else{ hideLoading(); showLoginScreen(false); }
+    }
+    if(event==="TOKEN_REFRESHED"&&session){ state.session=session; }
+    if(event==="SIGNED_OUT"){ hideLoading(); showLoginScreen(false); }
+  });
+
+  /* ============================================================
+     APP CHROME
+     ============================================================ */
+  document.querySelectorAll(".tab").forEach(function(b){b.addEventListener("click",function(){renderTab(b.getAttribute("data-tab"));});});
+  document.getElementById("fab").addEventListener("click",function(){
+    if(state.tab==="play")openNewGameSheet();
+    else if(state.tab==="trichter")openAddTrichterSheet();
+  });
+
+  function renderTab(tab){
+    state.tab=tab; state.current=null;
+    document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});
+    document.getElementById("fab").style.display=(tab==="play"||tab==="trichter")?"flex":"none";
+    if(tab==="play")renderPlay();
+    if(tab==="leaderboard")renderLeaderboard();
+    if(tab==="trichter")renderTrichter();
+    if(tab==="history")renderHistory();
+    if(tab==="people")renderPeople();
+  }
+
+  /* ============================================================
+     CONFIRM DIALOG
+     ============================================================ */
+  function confirmDialog(msg,danger,onYes){
+    var bd=document.createElement("div"); bd.className="sheet-backdrop";
+    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div><h2>Are you sure?</h2>'
+      +'<p class="confirm-msg">'+esc(msg)+'</p>'
+      +'<button class="btn '+(danger?"btn-danger":"btn-primary")+' btn-block" id="cdYes">'+(danger?"Yes, do it":"Confirm")+'</button>'
+      +'<button class="btn btn-ghost btn-block" style="margin-top:8px;" id="cdNo">Cancel</button></div>';
+    document.body.appendChild(bd);
+    document.getElementById("cdYes").addEventListener("click",function(){bd.remove();onYes();});
+    document.getElementById("cdNo").addEventListener("click",function(){bd.remove();});
+    bd.addEventListener("click",function(e){if(e.target===bd)bd.remove();});
+  }
+
+  /* ============================================================
+     PLAY TAB
+     ============================================================ */
+  function renderPlay(){
+    var screen=document.getElementById("screen");
+    var active=state.games.filter(function(g){return g.status==="active";});
+    var html='<div class="section-title">In progress</div>';
+    if(active.length===0){html+='<div class="empty"><span class="big">No games on the table</span>Tap + to rack \'em up.</div>';}
+    else{active.forEach(function(g){html+=gameCardHtml(g);});}
+    screen.innerHTML=html;
+    screen.querySelectorAll(".game-card").forEach(function(c){c.addEventListener("click",function(){openGame(c.getAttribute("data-id"));});});
+  }
+
+  function gameCardHtml(g){
+    var leftA=g.cupsA.filter(Boolean).length,leftB=g.cupsB.filter(Boolean).length;
+    var sc=g.status==="active"?"live":"done";
+    var sl=g.status==="active"?"live":g.status==="cancelled"?"cancelled":"final";
+    return '<div class="game-card" data-id="'+esc(g.id)+'">'
+      +'<div class="gc-top"><div class="gc-teams">'+esc(teamName(g,"A"))+'<span class="vs">vs</span>'+esc(teamName(g,"B"))+'</div>'
+      +'<span class="badge '+sc+'">'+sl+'</span></div>'
+      +'<div class="gc-meta"><span>'+g.cupCount+' cups</span><span>'+(g.cupCount-leftB)+'\u2013'+(g.cupCount-leftA)+'</span>'
+      +'<span style="color:var(--text-faint);">'+esc(g.teamA.join(", "))+' vs '+esc(g.teamB.join(", "))+'</span></div>'
+      +'</div>';
+  }
+
+  /* ============================================================
+     NEW GAME SHEET
+     ============================================================ */
+  function openNewGameSheet(){
+    var bd=document.createElement("div"); bd.className="sheet-backdrop";
+    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div><h2>New game</h2>'
+      +'<div class="team-block A"><div class="team-label A"><span class="sw"></span>Team A</div>'
+        +'<input class="team-name-input" id="nameA" placeholder="Team A" maxlength="30" value="Team A" />'
+        +'<div id="rowsA"></div><button class="add-player-link" data-team="A">+ add teammate</button></div>'
+      +'<div class="team-block B"><div class="team-label B"><span class="sw"></span>Team B</div>'
+        +'<input class="team-name-input" id="nameB" placeholder="Team B" maxlength="30" value="Team B" />'
+        +'<div id="rowsB"></div><button class="add-player-link" data-team="B">+ add teammate</button></div>'
+      +'<div class="section-title" style="margin-top:4px;">Cup count</div>'
+      +'<div class="pill-row" id="cup-pills"><div class="pill sel" data-count="10">10 cups</div><div class="pill" data-count="6">6 cups</div></div>'
+      +'<div class="section-title">Who throws first?</div>'
+      +'<div class="pill-row" id="first-pills"><div class="pill sel" data-first="A" id="firstA">Team A</div><div class="pill" data-first="B" id="firstB">Team B</div></div>'
+      +'<div style="height:18px;"></div>'
+      +'<button class="btn btn-primary btn-block" id="start-game-btn">Start game</button>'
+      +'<button class="btn btn-ghost btn-block" style="margin-top:8px;" id="cancel-sheet-btn">Cancel</button></div>';
+    document.body.appendChild(bd);
+
+    function syncFirstLabels(){
+      document.getElementById("firstA").textContent=document.getElementById("nameA").value.trim()||"Team A";
+      document.getElementById("firstB").textContent=document.getElementById("nameB").value.trim()||"Team B";
+    }
+    document.getElementById("nameA").addEventListener("input",syncFirstLabels);
+    document.getElementById("nameB").addEventListener("input",syncFirstLabels);
+
+    var cupCount=10,firstTeam="A";
+
+    function getOtherNames(team){
+      return Array.from(document.getElementById("rows"+(team==="A"?"B":"A")).querySelectorAll(".combo-wrap input"))
+        .map(function(i){return i.value.trim().toLowerCase();}).filter(Boolean);
+    }
+
+    function addRow(team){
+      var wrap=document.getElementById("rows"+team);
+      var row=document.createElement("div"); row.className="player-row";
+      row.innerHTML='<div class="combo-wrap"><input maxlength="24" placeholder="Search or type a name" autocomplete="off" /><div class="combo-suggestions" hidden></div></div><button class="rm" type="button">\xd7</button>';
+      var inp=row.querySelector("input"),sugg=row.querySelector(".combo-suggestions");
+      function doR(){renderCombo(inp,sugg,getOtherNames(team));}
+      inp.addEventListener("input",doR); inp.addEventListener("focus",doR);
+      inp.addEventListener("blur",function(){setTimeout(function(){sugg.hidden=true;},160);});
+      row.querySelector(".rm").addEventListener("click",function(){if(wrap.children.length>1)row.remove();});
+      wrap.appendChild(row);
+    }
+
+    function renderCombo(inp,sugg,excl){
+      var q=inp.value.trim().toLowerCase();
+      var m=(q?state.people.filter(function(p){return p.name.toLowerCase().indexOf(q)>=0;}):state.people)
+        .filter(function(p){return excl.indexOf(p.name.toLowerCase())<0;}).slice(0,5);
+      var h=m.map(function(p){return '<div class="combo-item" data-name="'+esc(p.name)+'">'+esc(p.name)+'</div>';}).join("");
+      var exact=q&&state.people.some(function(p){return p.name.toLowerCase()===q;});
+      if(q&&!exact&&excl.indexOf(q)<0){
+        h+='<div class="combo-item temp" data-name="'+esc(inp.value.trim())+'">+ "'+esc(inp.value.trim())+'" \u2014 one-off</div>';
+      }
+      if(!h){sugg.hidden=true;return;}
+      sugg.innerHTML=h; sugg.hidden=false;
+      sugg.querySelectorAll(".combo-item").forEach(function(item){
+        item.addEventListener("mousedown",function(e){e.preventDefault();inp.value=item.getAttribute("data-name");sugg.hidden=true;});
+      });
+    }
+
+    addRow("A"); addRow("B");
+    bd.querySelectorAll(".add-player-link").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        var t=btn.getAttribute("data-team");
+        if(document.getElementById("rows"+t).children.length>=4){toast("Max 4 per team");return;}
+        addRow(t);
+      });
+    });
+    bd.querySelectorAll("#cup-pills .pill").forEach(function(p){p.addEventListener("click",function(){bd.querySelectorAll("#cup-pills .pill").forEach(function(x){x.classList.remove("sel");});p.classList.add("sel");cupCount=parseInt(p.getAttribute("data-count"),10);});});
+    bd.querySelectorAll("#first-pills .pill").forEach(function(p){p.addEventListener("click",function(){bd.querySelectorAll("#first-pills .pill").forEach(function(x){x.classList.remove("sel");});p.classList.add("sel");firstTeam=p.getAttribute("data-first");});});
+    document.getElementById("cancel-sheet-btn").addEventListener("click",function(){confirmDialog("Discard this new game?",false,function(){bd.remove();});});
+    bd.addEventListener("click",function(e){if(e.target===bd){confirmDialog("Discard this new game?",false,function(){bd.remove();});}});
+    document.getElementById("start-game-btn").addEventListener("click",function(){
+      var tA=Array.from(document.getElementById("rowsA").querySelectorAll(".combo-wrap input")).map(function(i){return i.value.trim();}).filter(Boolean);
+      var tB=Array.from(document.getElementById("rowsB").querySelectorAll(".combo-wrap input")).map(function(i){return i.value.trim();}).filter(Boolean);
+      if(!tA.length||!tB.length){toast("Each team needs at least one player");return;}
+      var ov=tA.filter(function(n){return tB.some(function(b){return b.toLowerCase()===n.toLowerCase();});});
+      if(ov.length){toast(ov[0]+" can't be on both teams");return;}
+      bd.remove();
+      startNewGame(tA,tB,document.getElementById("nameA").value.trim()||"Team A",document.getElementById("nameB").value.trim()||"Team B",cupCount,firstTeam);
+    });
+  }
+
+  /* ============================================================
+     GAME STATE
+     ============================================================ */
+  function startNewGame(teamA,teamB,nameA,nameB,cupCount,firstTeam){
+    var reg={};
+    state.people.forEach(function(p){reg[p.name.toLowerCase()]=true;});
+    var temp=teamA.concat(teamB).filter(function(n){return!reg[n.toLowerCase()];});
+    var g={
+      id:uid(),teamA:teamA,teamB:teamB,teamNameA:nameA,teamNameB:nameB,cupCount:cupCount,
+      cupsA:new Array(cupCount).fill(true),cupsB:new Array(cupCount).fill(true),
+      throwingTeam:firstTeam,phase:"throw1",
+      pendingPair:{throws:[]},bonusSelected:[],bonusRequired:0,bonusDodgeCount:0,bonusSameCup:false,
+      allThrows:[],log:[],status:"active",winner:null,
+      tempPlayers:temp,selectedThrower:null,dodgeArmed:false,throwerIsSuggestion:false,
+      startedAt:Date.now(),endedAt:null,_bothHit:false,_targetTeam:"B"
+    };
+    autoSelectThrower(g);
+    state.games.unshift(g);
+    openGame(g.id);
+  }
+
+  /* ============================================================
+     LIVE GAME
+     ============================================================ */
+  function openGame(id){
+    state.current=state.games.find(function(g){return g.id===id;});
+    document.getElementById("fab").style.display="none";
+    renderGameView();
+  }
+
+  function logFeed(g,text){g.log.unshift({text:text,ts:Date.now()});}
+  function pushUndo(){state.undoStack.push(JSON.stringify(state.current));if(state.undoStack.length>25)state.undoStack.shift();}
+  function doUndo(){
+    if(!state.undoStack.length){toast("Nothing to undo");return;}
+    var r=JSON.parse(state.undoStack.pop());
+    var i=state.games.findIndex(function(g){return g.id===r.id;});
+    if(i>=0)state.games[i]=r;
+    state.current=r; renderGameView();
+  }
+
+  function autoSelectThrower(g){
+    var roster=g.throwingTeam==="A"?g.teamA:g.teamB;
+    if(roster.length===1){g.selectedThrower=roster[0];g.throwerIsSuggestion=false;return;}
+    var s=suggestNextThrower(g,g.throwingTeam);
+    if(s){g.selectedThrower=s;g.throwerIsSuggestion=true;}
+    else{g.selectedThrower=null;g.throwerIsSuggestion=false;}
+  }
+
+  function pairUp(arr){var p=[];for(var i=0;i+1<arr.length;i+=2)p.push([arr[i],arr[i+1]]);return p;}
+
+  function suggestNextThrower(g,team){
+    var roster=team==="A"?g.teamA:g.teamB;
+    if(roster.length<2)return null;
+    var throws=g.allThrows.filter(function(t){return t.team===team;}).map(function(t){return t.thrower;});
+    if(throws.length%2===1){
+      var ball1=throws[throws.length-1];
+      var pp=pairUp(throws.slice(0,-1));
+      if(!pp.length)return null;
+      var sc=pp.filter(function(p){return p[0]===p[1];}).length;
+      if(sc>=pp.length-sc){return ball1;}
+      var partners={};
+      pp.forEach(function(p){if(p[0]===ball1&&p[1]!==ball1)partners[p[1]]=(partners[p[1]]||0)+1;});
+      var best=null;
+      Object.keys(partners).forEach(function(n){if(!best||partners[n]>partners[best])best=n;});
+      if(best)return best;
+      return roster[(roster.indexOf(ball1)+1)%roster.length];
+    }
+    var pp2=pairUp(throws);
+    if(!pp2.length)return null;
+    var prim=pp2.map(function(p){return p[0];});
+    var order=[];
+    prim.slice(-8).forEach(function(n){if(order.indexOf(n)<0)order.push(n);});
+    if(order.length<2)return null;
+    var last=prim[prim.length-1];
+    return order[(order.indexOf(last)+1)%order.length];
+  }
+
+  function renderGameView(){
+    var g=state.current,screen=document.getElementById("screen");
+    var tgt=g.throwingTeam==="A"?"B":"A";
+    var lA=g.cupsA.filter(Boolean).length,lB=g.cupsB.filter(Boolean).length;
+    var isActive=g.status==="active";
+    var hasCtrl=isActive&&(g.phase==="throw1"||g.phase==="throw2"||g.phase==="bonus");
+
+    var html='<div class="live-header"><button class="back-link" id="back-to-play">\u2039 All games</button>'
+      +(isActive?'<span class="step-pill">'+stepLabel(g)+'</span>':'')+'</div>';
+
+    if(g.status==="complete")
+      html+='<div class="result-banner"><div class="big">'+esc(teamName(g,g.winner))+' won it</div><small>'+(g.cupCount-lB)+'\u2013'+(g.cupCount-lA)+' final score</small></div>';
+    if(g.status==="cancelled")
+      html+='<div class="result-banner" style="background:var(--red-dim);border-color:rgba(226,64,45,0.4);"><div class="big" style="color:#E8897C;">Game cancelled</div></div>';
+
+    html+='<div class="score-big"><span class="num A">'+(g.cupCount-lB)+'</span><span class="dash">\u2013</span><span class="num B">'+(g.cupCount-lA)+'</span></div>';
+
+    if(isActive&&g.phase==="throw2"){
+      var t1=g.pendingPair.throws[0];
+      html+='<div class="recap">\ud83c\udfd0 <b>Ball 1:</b> '+esc(t1.thrower)+' \u2014 '+throwSummary(t1)+'</div>';
+    }
+    if(isActive&&g.phase==="bonus")
+      html+='<div class="bonus-banner">'+bonusReasonText(g)+' \u2014 pick exactly '+g.bonusRequired+' cup'+(g.bonusRequired===1?"":"s")+' to remove</div>';
+
+    html+=pyramidZoneHtml(g,tgt,hasCtrl);
+
+    if(hasCtrl){
+      if(g.phase==="throw1"||g.phase==="throw2"){
+        html+='<div class="controls"><div class="ctl-label">who threw this ball \u2014 '+esc(teamName(g,g.throwingTeam))+'</div><div class="chips">';
+        (g.throwingTeam==="A"?g.teamA:g.teamB).forEach(function(n){
+          var isTmp=g.tempPlayers.indexOf(n)>=0;
+          html+='<div class="chip'+(g.selectedThrower===n?" active":"")+'" data-thrower="'+esc(n)+'">'+esc(n)+(isTmp?' <span class="temp-tag">one-off</span>':'')+'</div>';
+        });
+        html+='</div>';
+        if(g.throwerIsSuggestion&&g.selectedThrower)
+          html+='<div class="suggest-hint">\ud83d\udca1 Suggested: '+esc(g.selectedThrower)+' \u2014 tap to change</div>';
+        html+='<div class="dodge-row"><button class="dodge-toggle'+(g.dodgeArmed?" armed":"")+'" id="dodge-toggle">\ud83d\udee1\ufe0f '+(g.dodgeArmed?"Next tap = dodge":"Mark as dodge")+'</button></div>'
+          +'<div class="action-row"><button class="miss-btn" id="airball-btn">Airball</button><button class="miss-btn" id="miss-btn">Miss</button></div>'
+          +'</div>';
+      } else if(g.phase==="bonus"){
+        html+='<div class="controls"><div class="bonus-count">'+g.bonusSelected.length+' of '+g.bonusRequired+' selected</div>'
+          +'<button class="btn btn-primary btn-block" id="bonus-confirm" '+(g.bonusSelected.length===g.bonusRequired?"":"disabled")+'>Confirm removal</button></div>';
+      }
+    }
+
+    if(isActive)
+      html+='<div class="end-controls"><button class="btn btn-danger-ghost" id="cancel-game-btn">Cancel game</button><button class="btn btn-ghost" id="undo-btn">Undo</button></div>';
+
+    html+='<div class="feed"><div class="section-title">Event feed</div>'
+      +g.log.slice(0,40).map(function(l){return '<div class="feed-line"><span>'+esc(l.text)+'</span><span class="t">'+timeShort(l.ts)+'</span></div>';}).join("")
+      +(g.log.length===0?'<div class="empty">No throws yet</div>':"")
+      +'</div>';
+
+    screen.innerHTML=html;
+    document.getElementById("back-to-play").addEventListener("click",function(){state.current=null;renderTab("play");});
+    if(isActive){
+      document.getElementById("undo-btn").addEventListener("click",doUndo);
+      document.getElementById("cancel-game-btn").addEventListener("click",function(){
+        confirmDialog("Cancel this game? It won\u2019t count toward stats.",true,function(){
+          g.status="cancelled";g.phase="cancelled";state.current=null;renderTab("play");
+        });
+      });
+      if(g.phase==="throw1"||g.phase==="throw2"){
+        screen.querySelectorAll(".chip[data-thrower]").forEach(function(c){
+          c.addEventListener("click",function(){g.selectedThrower=c.getAttribute("data-thrower");g.throwerIsSuggestion=false;renderGameView();});
+        });
+        document.getElementById("dodge-toggle").addEventListener("click",function(){g.dodgeArmed=!g.dodgeArmed;renderGameView();});
+        document.getElementById("airball-btn").addEventListener("click",function(){logThrow("airball",null);});
+        document.getElementById("miss-btn").addEventListener("click",function(){logThrow("miss",null);});
+        screen.querySelectorAll(".cup:not(.cup--hit)").forEach(function(cup){
+          cup.addEventListener("click",function(){logThrow("hit",parseInt(cup.getAttribute("data-idx"),10));});
+        });
+      } else if(g.phase==="bonus"){
+        screen.querySelectorAll(".cup:not(.cup--hit)").forEach(function(cup){
+          cup.addEventListener("click",function(){toggleBonusSelect(parseInt(cup.getAttribute("data-idx"),10));});
+        });
+        document.getElementById("bonus-confirm").addEventListener("click",confirmBonus);
+      }
+    }
+  }
+
+  function stepLabel(g){if(g.phase==="throw1")return "ball 1 of 2";if(g.phase==="throw2")return "ball 2 of 2";if(g.phase==="bonus")return "bonus removal";return "";}
+  function throwSummary(t){if(t.outcome==="miss")return "miss";if(t.outcome==="airball")return "airball";return t.dodge?"dodge on cup #"+(t.cupIndex+1):"hit cup #"+(t.cupIndex+1);}
+  function bonusReasonText(g){
+    if(g.bonusDodgeCount&&g.bonusSameCup)return "\ud83d\udee1\ufe0f\ud83d\udca5 "+g.bonusDodgeCount+" dodge"+(g.bonusDodgeCount>1?"s":"")+" + same-cup double";
+    if(g.bonusDodgeCount)return "\ud83d\udee1\ufe0f "+g.bonusDodgeCount+" dodge"+(g.bonusDodgeCount>1?"s":"")+" called";
+    return "\ud83d\udca5 Same cup hit twice";
+  }
+
+  function pyramidZoneHtml(g,tgt,connected){
+    var cups=tgt==="A"?g.cupsA:g.cupsB,rows=cupRows(g.cupCount),pi={};
+    if(g.phase==="throw2")g.pendingPair.throws.forEach(function(t){if(t.outcome==="hit")pi[t.cupIndex]=true;});
+    var html='<div class="pyramid-zone'+(connected?" connected":"")+'"><div class="pz-label">'
+      +(g.status==="active"?'<b>target</b> \u2014 ':'')+esc(teamName(g,tgt))+"'s cups</div>";
+    rows.forEach(function(row){
+      html+='<div class="pyramid-row">';
+      row.forEach(function(i){
+        var hit=!cups[i],cls="cup "+tgt,badge="";
+        if(hit)cls+=" cup--hit";
+        else if(g.phase==="bonus"&&g.bonusSelected.indexOf(i)>=0){cls+=" cup--bonus-sel";badge='<span class="bonus-check">\u2713</span>';}
+        else if(pi[i])cls+=" cup--pending";
+        html+='<div class="cup-wrap"><div class="'+cls+'" data-idx="'+i+'"></div>'+badge+'</div>';
+      });
+      html+='</div>';
+    });
+    return html+'</div>';
+  }
+
+  function logThrow(outcome,cupIndex){
+    var g=state.current;
+    if(!g.selectedThrower){toast("Pick who threw it first");return;}
+    pushUndo();
+    var t={thrower:g.selectedThrower,team:g.throwingTeam,outcome:outcome,cupIndex:outcome==="hit"?cupIndex:null,dodge:outcome==="hit"?g.dodgeArmed:false,ts:Date.now()};
+    g.pendingPair.throws.push(t);g.allThrows.push(t);
+    logFeed(g,"\ud83c\udfd0 "+t.thrower+" \u2014 "+throwSummary(t));
+    g.dodgeArmed=false;
+    if(g.phase==="throw1"){g.phase="throw2";autoSelectThrower(g);renderGameView();return;}
+    resolvePair(g);renderGameView();
+  }
+
+  function resolvePair(g){
+    var t1=g.pendingPair.throws[0],t2=g.pendingPair.throws[1];
+    var tgt=g.throwingTeam==="A"?"B":"A",cups=tgt==="A"?g.cupsA:g.cupsB;
+    g._targetTeam=tgt; g._bothHit=t1.outcome==="hit"&&t2.outcome==="hit";
+    var hi=[]; if(t1.outcome==="hit")hi.push(t1.cupIndex); if(t2.outcome==="hit")hi.push(t2.cupIndex);
+    var di=hi.filter(function(v,i){return hi.indexOf(v)===i;});
+    di.forEach(function(i){cups[i]=false;});
+    if(di.length)logFeed(g,"\ud83c\udfaf "+di.length+" cup"+(di.length>1?"s":"")+" removed");
+    if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);return;}
+    var dc=(t1.outcome==="hit"&&t1.dodge?1:0)+(t2.outcome==="hit"&&t2.dodge?1:0);
+    var sc=g._bothHit&&t1.cupIndex===t2.cupIndex;
+    var bc=dc+(sc?2:0);
+    if(bc>0){
+      g.phase="bonus";g.bonusRequired=Math.min(bc,cups.filter(Boolean).length);
+      g.bonusDodgeCount=dc;g.bonusSameCup=sc;g.bonusSelected=[];
+      logFeed(g,bonusReasonText(g)+" \u2014 "+g.bonusRequired+" bonus cup"+(g.bonusRequired===1?"":"s")+" owed");
+    } else { finalizePair(g); }
+  }
+
+  function toggleBonusSelect(i){
+    var g=state.current,idx=g.bonusSelected.indexOf(i);
+    if(idx>=0)g.bonusSelected.splice(idx,1);
+    else{if(g.bonusSelected.length>=g.bonusRequired){toast("Only "+g.bonusRequired+" cup"+(g.bonusRequired===1?"":"s")+" to select");return;}g.bonusSelected.push(i);}
+    renderGameView();
+  }
+
+  function confirmBonus(){
+    var g=state.current;
+    if(g.bonusSelected.length!==g.bonusRequired)return;
+    pushUndo();
+    var cups=g._targetTeam==="A"?g.cupsA:g.cupsB;
+    g.bonusSelected.forEach(function(i){cups[i]=false;});
+    logFeed(g,"\ud83d\udca5 Bonus: "+g.bonusSelected.length+" extra cup"+(g.bonusSelected.length>1?"s":"")+" removed");
+    g.bonusSelected=[];
+    if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);renderGameView();return;}
+    finalizePair(g);renderGameView();
+  }
+
+  function finalizePair(g){
+    g.pendingPair={throws:[]};g.phase="throw1";
+    if(g._bothHit){logFeed(g,"\ud83d\udd01 Balls back \u2014 "+teamName(g,g.throwingTeam)+" throws again");}
+    else{g.throwingTeam=g.throwingTeam==="A"?"B":"A";logFeed(g,"\u21aa\ufe0f Turn over \u2014 "+teamName(g,g.throwingTeam)+" throws next");}
+    autoSelectThrower(g);
+  }
+
+  function completeGame(g,winner){
+    g.status="complete";g.phase="complete";g.winner=winner;g.endedAt=Date.now();
+    logFeed(g,"\ud83c\udfc6 "+teamName(g,winner)+" wins!");
+    toast("Game logged \ud83c\udfc6");
+  }
+
+  /* ============================================================
+     LEADERBOARD
+     ============================================================ */
+  var SORTS={
+    winpct:{label:"Win %",fn:function(s){return s.wins+s.losses?s.wins/(s.wins+s.losses):-1;},fmt:function(s){return s.wins+s.losses?Math.round(s.wins/(s.wins+s.losses)*100)+"%":"\u2014";},sub:"win rate"},
+    wins:{label:"Wins",fn:function(s){return s.wins;},fmt:function(s){return s.wins;},sub:"wins"},
+    accuracy:{label:"Accuracy",fn:function(s){return s.throwsTotal?s.hits/s.throwsTotal:-1;},fmt:function(s){return s.throwsTotal?Math.round(s.hits/s.throwsTotal*100)+"%":"\u2014";},sub:"shot accuracy"},
+    cups:{label:"Cups",fn:function(s){return s.hits;},fmt:function(s){return s.hits;},sub:"cups hit"},
+    dodged:{label:"Dodged",fn:function(s){return s.dodged;},fmt:function(s){return s.dodged;},sub:"dodges"},
+    trichter:{label:"Trichter",fn:function(s){return s.trichterCount||0;},fmt:function(s){return s.trichterCount||0;},sub:"trichters"}
+  };
+
+  function computeLeaderboard(){
+    var lb={};
+    function ens(n){if(!lb[n])lb[n]={wins:0,losses:0,throwsTotal:0,hits:0,dodged:0,gamesPlayed:0,trichterCount:0,trichterFastest:null,trichterTotal:0};}
+    state.games.forEach(function(g){
+      if(g.status!=="complete")return;
+      g.teamA.concat(g.teamB).forEach(ens);
+      g.teamA.forEach(function(n){lb[n].gamesPlayed++;if(g.winner==="A")lb[n].wins++;else lb[n].losses++;});
+      g.teamB.forEach(function(n){lb[n].gamesPlayed++;if(g.winner==="B")lb[n].wins++;else lb[n].losses++;});
+      g.allThrows.forEach(function(t){ens(t.thrower);lb[t.thrower].throwsTotal++;if(t.outcome==="hit"){lb[t.thrower].hits++;if(t.dodge)lb[t.thrower].dodged++;}});
+    });
+    state.trichters.forEach(function(tr){
+      ens(tr.person);lb[tr.person].trichterCount++;lb[tr.person].trichterTotal+=tr.durationMs;
+      if(lb[tr.person].trichterFastest===null||tr.durationMs<lb[tr.person].trichterFastest)lb[tr.person].trichterFastest=tr.durationMs;
+    });
+    return lb;
+  }
+
+  function renderLeaderboard(){
+    var screen=document.getElementById("screen"),lb=computeLeaderboard(),names=Object.keys(lb);
+    var html='<div class="sort-row">';
+    Object.keys(SORTS).forEach(function(k){html+='<div class="sort-chip'+(state.lbSort===k?" sel":"")+'" data-sort="'+k+'">'+SORTS[k].label+'</div>';});
+    html+='</div>';
+    if(!names.length){html+='<div class="empty"><span class="big">Board\'s empty</span>Finish a game to put someone on top.</div>';}
+    else{
+      var def=SORTS[state.lbSort];
+      names.map(function(n){return Object.assign({name:n},lb[n]);}).sort(function(a,b){return def.fn(b)-def.fn(a);}).forEach(function(p,i){
+        html+='<div class="lb-row" data-name="'+esc(p.name)+'">'
+          +'<div class="lb-rank'+(i===0?" gold":"")+'">'+(i+1)+'</div>'
+          +'<div class="lb-name"><div class="nm">'+esc(p.name)+'</div><div class="sub">'+p.wins+'W\u2013'+p.losses+'L \u00b7 '+p.throwsTotal+' throws \u00b7 '+p.trichterCount+' Trichter</div></div>'
+          +'<div class="lb-stat"><div class="v">'+def.fmt(p)+'</div><div class="l">'+def.sub+'</div></div></div>';
+      });
+    }
+    screen.innerHTML=html;
+    screen.querySelectorAll(".sort-chip").forEach(function(c){c.addEventListener("click",function(){state.lbSort=c.getAttribute("data-sort");renderLeaderboard();});});
+    screen.querySelectorAll(".lb-row").forEach(function(r){r.addEventListener("click",function(){openPlayerProfile(r.getAttribute("data-name"));});});
+  }
+
+  /* ============================================================
+     PLAYER PROFILE
+     ============================================================ */
+  function computePlayerCupStats(name){
+    var bf={6:new Array(6).fill(0),10:new Array(10).fill(0)};
+    state.games.forEach(function(g){
+      if(g.status!=="complete")return;
+      g.allThrows.forEach(function(t){if(t.thrower===name&&t.outcome==="hit")bf[g.cupCount][t.cupIndex]++;});
+    });
+    return bf;
+  }
+
+  function heatmapPyramidHtml(counts,cupCount){
+    var rows=cupRows(cupCount),max=Math.max.apply(null,counts.concat([1]));
+    var html='<div class="pyramid-zone">';
+    rows.forEach(function(row){
+      html+='<div class="pyramid-row">';
+      row.forEach(function(i){
+        var c=counts[i],ratio=c/max,b=c===0?"h0":ratio>0.66?"h3":ratio>0.33?"h2":"h1";
+        html+='<div class="heat-cup-wrap"><div class="cup heat '+b+'"></div>'+(c>0?'<span class="heat-count">'+c+'</span>':'')+'</div>';
+      });
+      html+='</div>';
+    });
+    return html+'</div>';
+  }
+
+  function statBox(v,l){return '<div class="profile-stat"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>';}
+
+  function openPlayerProfile(name){
+    var lb=computeLeaderboard();
+    var s=lb[name]||{wins:0,losses:0,throwsTotal:0,hits:0,dodged:0,gamesPlayed:0,trichterCount:0,trichterFastest:null,trichterTotal:0};
+    var winPct=s.wins+s.losses?Math.round(s.wins/(s.wins+s.losses)*100)+"%":"\u2014";
+    var acc=s.throwsTotal?Math.round(s.hits/s.throwsTotal*100)+"%":"\u2014";
+    var tAvg=s.trichterCount>0?fmtMs(Math.round(s.trichterTotal/s.trichterCount)):"\u2014";
+    var tBest=s.trichterFastest!==null?fmtMs(s.trichterFastest):"\u2014";
+    var cs=computePlayerCupStats(name);
+    var t10=cs[10].reduce(function(a,b){return a+b;},0),t6=cs[6].reduce(function(a,b){return a+b;},0);
+    var uf=t10>=t6?10:6,hh=(t10+t6)>0;
+    var bd=document.createElement("div"); bd.className="sheet-backdrop";
+    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div><h2>'+esc(name)+'</h2>'
+      +'<div class="section-title" style="margin-top:0;">Game stats</div>'
+      +'<div class="profile-stats">'+statBox(s.wins+"\u2013"+s.losses,"record")+statBox(winPct,"win rate")+statBox(acc,"accuracy")+statBox(s.hits,"cups hit")+statBox(s.dodged,"dodges")+statBox(s.throwsTotal,"throws")+'</div>'
+      +'<div class="section-title">Trichter</div>'
+      +'<div class="profile-stats">'+statBox(s.trichterCount,"count")+statBox(tBest,"fastest")+statBox(tAvg,"avg time")+'</div>'
+      +'<div class="section-title">Cup heatmap ('+uf+'-cup layout)</div>'
+      +(hh?heatmapPyramidHtml(cs[uf],uf):'<div class="empty">No tracked hits yet</div>')
+      +'<button class="btn btn-ghost btn-block" style="margin-top:18px;" id="close-profile">Close</button></div>';
+    document.body.appendChild(bd);
+    bd.addEventListener("click",function(e){if(e.target===bd)bd.remove();});
+    document.getElementById("close-profile").addEventListener("click",function(){bd.remove();});
+  }
+
+  /* ============================================================
+     TRICHTER
+     ============================================================ */
+  function renderTrichter(){
+    var screen=document.getElementById("screen");
+    var sorted=state.trichters.slice().sort(function(a,b){return b.ts-a.ts;});
+    var html='<div class="section-title">Recent trichters ('+state.trichters.length+')</div>';
+    if(!sorted.length){html+='<div class="empty"><span class="big">No trichters yet</span>Tap + to time one.</div>';}
+    else{sorted.slice(0,40).forEach(function(tr){html+='<div class="trichter-row"><div class="t-person">'+esc(tr.person)+'</div><div class="t-dur">'+fmtMs(tr.durationMs)+'</div><div class="t-ts">'+timeShort(tr.ts)+'</div></div>';});}
+    screen.innerHTML=html;
+  }
+
+  function openAddTrichterSheet(){
+    var bd=document.createElement("div"); bd.className="sheet-backdrop";
+    var everyone=state.people.map(function(p){return p.name;});
+    state.games.forEach(function(g){g.teamA.concat(g.teamB).forEach(function(n){if(everyone.indexOf(n)<0)everyone.push(n);});});
+    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div><h2>Add Trichter</h2>'
+      +'<div class="combo-wrap" id="tc-wrap"><input id="tc-input" maxlength="24" placeholder="Select person" autocomplete="off" /><div class="combo-suggestions" hidden></div></div>'
+      +'<div class="stopwatch" id="tc-sw">00:00.0</div>'
+      +'<div class="sw-hint" id="tc-hint">Select a person, then start the timer</div>'
+      +'<button class="btn btn-primary btn-block" id="tc-start" disabled>Start timer</button>'
+      +'<button class="btn btn-ghost btn-block" style="margin-top:8px;display:none;" id="tc-confirm">Confirm &amp; save</button>'
+      +'<button class="btn btn-ghost btn-block" style="margin-top:8px;" id="tc-cancel">Cancel</button></div>';
+    document.body.appendChild(bd);
+    var inp=document.getElementById("tc-input"),sugg=bd.querySelector(".combo-suggestions");
+    var swEl=document.getElementById("tc-sw"),startBtn=document.getElementById("tc-start"),confirmBtn=document.getElementById("tc-confirm"),hint=document.getElementById("tc-hint");
+    var timerInt=null,startMs=null,stoppedMs=null,running=false;
+    function renderTC(){
+      var q=inp.value.trim().toLowerCase();
+      var m=(q?everyone.filter(function(n){return n.toLowerCase().indexOf(q)>=0;}):everyone).slice(0,6);
+      var h=m.map(function(n){return '<div class="combo-item" data-name="'+esc(n)+'">'+esc(n)+'</div>';}).join("");
+      if(q&&!everyone.some(function(n){return n.toLowerCase()===q;})){h+='<div class="combo-item temp" data-name="'+esc(inp.value.trim())+'">+ "'+esc(inp.value.trim())+'"</div>';}
+      if(!h){sugg.hidden=true;return;}
+      sugg.innerHTML=h;sugg.hidden=false;
+      sugg.querySelectorAll(".combo-item").forEach(function(item){item.addEventListener("mousedown",function(e){e.preventDefault();inp.value=item.getAttribute("data-name");sugg.hidden=true;chk();});});
+    }
+    function chk(){startBtn.disabled=!(inp.value.trim()&&!running&&!stoppedMs);}
+    inp.addEventListener("input",function(){renderTC();chk();}); inp.addEventListener("focus",renderTC);
+    inp.addEventListener("blur",function(){setTimeout(function(){sugg.hidden=true;},160);});
+    startBtn.addEventListener("click",function(){
+      if(running){
+        clearInterval(timerInt);timerInt=null;stoppedMs=Date.now()-startMs;running=false;
+        swEl.className="stopwatch";swEl.textContent=fmtMs(stoppedMs);
+        startBtn.textContent="Restart timer";startBtn.disabled=false;confirmBtn.style.display="";
+        hint.textContent="Tap confirm to save, or restart to try again";
+      } else {
+        stoppedMs=null;startMs=Date.now();running=true;
+        swEl.className="stopwatch running";startBtn.textContent="Stop timer";confirmBtn.style.display="none";
+        hint.textContent="Timer running\u2026";
+        timerInt=setInterval(function(){swEl.textContent=fmtMs(Date.now()-startMs);},100);
+      }
+    });
+    confirmBtn.addEventListener("click",function(){
+      if(!stoppedMs||!inp.value.trim())return;
+      clearInterval(timerInt);
+      state.trichters.unshift({id:uid(),person:inp.value.trim(),durationMs:stoppedMs,ts:Date.now()});
+      bd.remove();toast("Trichter saved \u2014 "+fmtMs(stoppedMs));renderTrichter();
+    });
+    document.getElementById("tc-cancel").addEventListener("click",function(){
+      if(running){confirmDialog("Stop timing and discard this trichter?",true,function(){clearInterval(timerInt);bd.remove();});}
+      else bd.remove();
+    });
+    bd.addEventListener("click",function(e){
+      if(e.target===bd){if(running){confirmDialog("Stop timing and discard this trichter?",true,function(){clearInterval(timerInt);bd.remove();});}else bd.remove();}
+    });
+  }
+
+  /* ============================================================
+     HISTORY
+     ============================================================ */
+  function renderHistory(){
+    var screen=document.getElementById("screen");
+    var games=state.games.slice().sort(function(a,b){return b.startedAt-a.startedAt;});
+    var html=!games.length?'<div class="empty"><span class="big">No games yet</span>Your first match will show up here.</div>':games.map(gameCardHtml).join("");
+    screen.innerHTML=html;
+    screen.querySelectorAll(".game-card").forEach(function(c){
+      c.addEventListener("click",function(){
+        var g=games.find(function(x){return x.id===c.getAttribute("data-id");});
+        if(g.status==="active")openGame(g.id);else openHistoryDetail(g);
+      });
+    });
+  }
+
+  function openHistoryDetail(g){
+    var bd=document.createElement("div"); bd.className="sheet-backdrop";
+    var lA=g.cupsA.filter(Boolean).length,lB=g.cupsB.filter(Boolean).length;
+    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div><h2>'+esc(teamName(g,"A"))+' vs '+esc(teamName(g,"B"))+'</h2>'
+      +'<div class="result-banner" style="'+(g.status==="cancelled"?"background:var(--red-dim);border-color:rgba(226,64,45,0.4);":"")+'">'
+        +'<div class="big" style="'+(g.status==="cancelled"?"color:#E8897C;":"")+'">'+(g.status==="cancelled"?"Cancelled":esc(teamName(g,g.winner))+" won")+'</div>'
+        +(g.status!=="cancelled"?'<small>'+(g.cupCount-lB)+'\u2013'+(g.cupCount-lA)+'</small>':"")
+      +'</div>'
+      +'<div class="section-title">Event feed</div>'
+      +'<div class="feed">'+g.log.map(function(l){return '<div class="feed-line"><span>'+esc(l.text)+'</span><span class="t">'+timeShort(l.ts)+'</span></div>';}).join("")+'</div>'
+      +'<button class="btn btn-ghost btn-block" style="margin-top:16px;" id="close-detail">Close</button></div>';
+    document.body.appendChild(bd);
+    bd.addEventListener("click",function(e){if(e.target===bd)bd.remove();});
+    document.getElementById("close-detail").addEventListener("click",function(){bd.remove();});
+  }
+
+  /* ============================================================
+     PEOPLE — backed by Supabase profiles + admin-invite-user Edge Function
+     ============================================================ */
+  function renderPeople(){
+    var screen=document.getElementById("screen");
+    var canInvite=isAdmin();
+
+    var html='<div class="section-title">Registered players ('+state.people.length+')</div>';
+    if(!state.people.length){
+      html+='<div class="empty"><span class="big">No players yet</span>Players appear here once they have an account.</div>';
+    } else {
+      html+='<div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0;">';
+      state.people.forEach(function(p,i){
+        var isMe=state.session&&state.profile&&p.id===state.session.user.id;
+        html+='<div class="people-row" style="'+(i>0?'border-top:1px solid var(--line);':'')+'">'
+          +'<div><div class="nm">'+esc(p.name)+(isMe?'<span class="you-badge">you</span>':'')+'</div>'
+          +(p.email?'<div class="em">'+esc(p.email)+'</div>':'')+'</div>'
+          +'</div>';
+      });
+      html+='</div>';
+    }
+
+    if(canInvite){
+      html+='<div class="section-title">Invite a new player</div>'
+        +'<div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;">'
+          +'<div class="invite-field"><input id="np-name" maxlength="24" placeholder="Display name" /></div>'
+          +'<div class="invite-field"><input id="np-email" type="email" maxlength="60" placeholder="Email address" /></div>'
+          +'<div class="invite-field"><input id="np-pw" type="password" maxlength="64" placeholder="Temporary password (min 8 chars)" /></div>'
+          +'<button class="btn btn-primary btn-block" id="invite-btn">Send invite</button>'
+          +'<div class="invite-error" id="invite-error"></div>'
+        +'</div>'
+        +'<p style="font-size:11.5px;color:var(--text-faint);margin:12px 0 0;line-height:1.5;">The player will be prompted to set a new password on first sign-in.</p>';
+    } else {
+      html+='<p style="font-size:11.5px;color:var(--text-faint);margin:14px 0 0;line-height:1.5;">Only admins can invite new players.</p>';
+    }
+
+    screen.innerHTML=html;
+
+    if(canInvite){
+      var errEl=document.getElementById("invite-error");
+      function showInvErr(msg){errEl.textContent=msg;errEl.classList.add("visible");}
+      function hideInvErr(){errEl.textContent="";errEl.classList.remove("visible");}
+
+      document.getElementById("invite-btn").addEventListener("click",async function(){
+        var name=document.getElementById("np-name").value.trim();
+        var email=document.getElementById("np-email").value.trim();
+        var pw=document.getElementById("np-pw").value;
+        hideInvErr();
+        if(!name||!email||!pw){showInvErr("All three fields are required.");return;}
+        if(pw.length<8){showInvErr("Temporary password must be at least 8 characters.");return;}
+
+        var btn=this; btn.disabled=true; btn.textContent="Inviting\u2026";
+
+        var res=await sb.functions.invoke("admin-invite-user",{
+          body:{email:email,display_name:name,initial_password:pw}
+        });
+
+        btn.disabled=false; btn.textContent="Send invite";
+
+        if(res.error||(res.data&&res.data.error)){
+          showInvErr((res.data&&res.data.error)||res.error.message||"Invite failed.");
+          return;
+        }
+
+        await loadPeopleFromSupabase();
+        toast(name+" invited \u2014 they can sign in now.");
+        renderPeople();
+      });
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
