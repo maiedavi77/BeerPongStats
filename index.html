@@ -234,6 +234,22 @@
   #toast-zone{position:fixed;top:70px;left:0;right:0;z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
   .toast{background:var(--surface-3);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:99px;font-size:12.5px;animation:toastin .25s ease-out;}
   @keyframes toastin{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ===== RE-RACK ===== */
+  .rerack-row{display:flex;gap:8px;margin-bottom:2px;}
+  .rerack-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:99px;border:1.5px solid var(--line);background:var(--surface);font-size:12px;font-weight:600;cursor:pointer;}
+  .rerack-btn:active{opacity:0.7;}
+  .rerack-formations{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
+  .formation-card{background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:12px 8px 10px;cursor:pointer;text-align:center;}
+  .formation-card.sel{background:var(--amber-dim);border-color:var(--amber);}
+  .formation-name{font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text);}
+  .formation-preview{display:flex;flex-direction:column;align-items:center;gap:5px;min-height:46px;justify-content:center;}
+  .formation-preview .fp-row{display:flex;gap:5px;justify-content:center;}
+  .fp-cup{width:13px;height:11px;clip-path:polygon(14% 0%,86% 0%,100% 100%,0% 100%);}
+  .fp-cup.A{background:linear-gradient(180deg,#F2604B,var(--red));}
+  .fp-cup.B{background:linear-gradient(180deg,#5AA3DE,var(--blue));}
+  .rerack-note{font-size:11.5px;color:var(--text-faint);text-align:center;margin-top:10px;line-height:1.5;}
+
 </style>
 </head>
 <body>
@@ -366,6 +382,8 @@
     document.getElementById("app").style.display="flex";
     var name=(state.profile&&state.profile.display_name)||(state.session&&state.session.user.email)||"";
     document.getElementById("user-badge").textContent=name;
+    var peopleTab=document.querySelector('.tab[data-tab="people"]');
+    if(peopleTab) peopleTab.style.display=isAdmin()?"flex":"none";
     renderTab("play");
   }
 
@@ -440,6 +458,8 @@
     state.session=null; state.profile=null;
     state.games=[]; state.current=null; state.undoStack=[];
     state.people=[]; state.trichters=[];
+    var pt=document.querySelector('.tab[data-tab="people"]');
+    if(pt) pt.style.display="none";
     showLoginScreen(false);
   });
 
@@ -466,6 +486,7 @@
   });
 
   function renderTab(tab){
+    if(tab==="people"&&!isAdmin()) tab="play";
     state.tab=tab; state.current=null;
     document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});
     document.getElementById("fab").style.display=(tab==="play"||tab==="trichter")?"flex":"none";
@@ -597,7 +618,6 @@
       if(!tA.length||!tB.length){toast("Each team needs at least one player");return;}
       var ov=tA.filter(function(n){return tB.some(function(b){return b.toLowerCase()===n.toLowerCase();});});
       if(ov.length){toast(ov[0]+" can't be on both teams");return;}
-      // Read name inputs BEFORE removing the sheet from the DOM
       var nameA=document.getElementById("nameA").value.trim()||"Team A";
       var nameB=document.getElementById("nameB").value.trim()||"Team B";
       bd.remove();
@@ -619,7 +639,7 @@
       pendingPair:{throws:[]},bonusSelected:[],bonusRequired:0,bonusDodgeCount:0,bonusSameCup:false,
       allThrows:[],log:[],status:"active",winner:null,
       tempPlayers:temp,selectedThrower:null,dodgeArmed:false,throwerIsSuggestion:false,
-      startedAt:Date.now(),endedAt:null,_bothHit:false,_targetTeam:"B"
+      startedAt:Date.now(),endedAt:null,_bothHit:false,_targetTeam:"B",_ballsBack:false,_rerackUsed:{}
     };
     autoSelectThrower(g);
     state.games.unshift(g);
@@ -682,6 +702,111 @@
     return order[(order.indexOf(last)+1)%order.length];
   }
 
+
+  /* ============================================================
+     RE-RACK FORMATIONS
+     Grid layout (back row = row closest to throwers = LAST row):
+     10-cup: row1[0-3] row2[4-6] row3[7-8] back[9]
+      6-cup: row1[0-2] row2[3-4]            back[5]
+     ============================================================ */
+  var RERACK_LAYOUT={10:[[0,1,2,3],[4,5,6],[7,8],[9]],6:[[0,1,2],[3,4],[5]]};
+  var RERACK_FORMATIONS={
+    10:[
+      {cups:6,name:"Triangle",      slots:[0,1,2,4,5,9]},
+      {cups:6,name:"Rev. Triangle", slots:[4,5,6,7,8,9]},
+      {cups:6,name:"Diamond",       slots:[1,4,6,8,5,9]},
+      {cups:5,name:"House",         slots:[0,4,5,8,9]},
+      {cups:5,name:"Triangle",      slots:[0,1,4,5,9]},
+      {cups:5,name:"Diamond",       slots:[1,4,6,8,9]},
+      {cups:4,name:"Diamond",       slots:[0,5,8,9]},
+      {cups:4,name:"Square",        slots:[4,5,7,8]},
+      {cups:4,name:"T-shape",       slots:[4,5,6,9]},
+      {cups:4,name:"Line",          slots:[0,4,8,9]},
+      {cups:3,name:"Triangle",      slots:[0,5,9]},
+      {cups:3,name:"Line",          slots:[7,8,9]},
+      {cups:3,name:"Rev. Triangle", slots:[4,8,9]},
+      {cups:2,name:"Side by side",  slots:[7,8]},
+      {cups:2,name:"Front-back",    slots:[0,9]},
+      {cups:1,name:"Single",        slots:[9]}
+    ],
+    6:[
+      {cups:4,name:"Diamond",       slots:[0,3,4,5]},
+      {cups:4,name:"Square",        slots:[0,1,3,5]},
+      {cups:4,name:"Line",          slots:[1,3,4,5]},
+      {cups:3,name:"Triangle",      slots:[0,3,5]},
+      {cups:3,name:"Line",          slots:[3,4,5]},
+      {cups:3,name:"Rev. Triangle", slots:[1,4,5]},
+      {cups:2,name:"Side by side",  slots:[3,4]},
+      {cups:2,name:"Front-back",    slots:[0,5]},
+      {cups:1,name:"Single",        slots:[5]}
+    ]
+  };
+  (function(){
+    [10,6].forEach(function(cc){
+      var layout=RERACK_LAYOUT[cc];
+      RERACK_FORMATIONS[cc].forEach(function(f){
+        var set={};f.slots.forEach(function(s){set[s]=true;});
+        f.rows=layout.map(function(row){return row.filter(function(s){return set[s];});}).filter(function(r){return r.length>0;});
+      });
+    });
+  })();
+
+  function rerackAllowed(g){ return g.phase==="throw1"&&!g._ballsBack; }
+
+  function rerackEligible(g,team){
+    var cups=team==="A"?g.cupsA:g.cupsB;
+    var standing=cups.filter(Boolean).length;
+    if(standing===g.cupCount||standing===0)return false;
+    return !(g._rerackUsed&&g._rerackUsed[team]);
+  }
+
+  function openRerackSheet(team){
+    var g=state.current;
+    var cups=team==="A"?g.cupsA:g.cupsB;
+    var standing=cups.filter(Boolean).length;
+    var fms=(RERACK_FORMATIONS[g.cupCount]||[]).filter(function(f){return f.cups===standing;});
+    if(!fms.length){toast("No formations for "+standing+" cups");return;}
+    var col=team==="A"?"var(--red)":"var(--blue)";
+    var tLabel=teamName(g,team);
+    var fHtml=fms.map(function(f,i){
+      var prev=f.rows.map(function(row){
+        return '<div class="fp-row">'+row.map(function(){return '<div class="fp-cup '+team+'"></div>';}).join('')+'</div>';
+      }).join('');
+      return '<div class="formation-card" data-fi="'+i+'"><div class="formation-name">'+esc(f.name)+'</div><div class="formation-preview">'+prev+'</div></div>';
+    }).join('');
+    var bd=document.createElement("div");bd.className="sheet-backdrop";
+    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div>'
+      +'<h2 style="color:'+col+';">Re-rack \u2014 '+esc(tLabel)+'</h2>'
+      +'<p style="font-size:12.5px;color:var(--text-dim);margin:0 0 14px;line-height:1.5;">'+standing+' cup'+(standing===1?"":"s")+' remaining. Pick a formation.</p>'
+      +'<div class="rerack-formations">'+fHtml+'</div>'
+      +'<button class="btn btn-primary btn-block" id="rr-confirm" disabled>Confirm re-rack</button>'
+      +'<button class="btn btn-ghost btn-block" style="margin-top:8px;" id="rr-cancel">Cancel</button>'
+      +'<p class="rerack-note">One cup must stay in the back row (closest to your edge). All formations enforce this.</p>'
+      +'</div>';
+    document.body.appendChild(bd);
+    var selFi=null;
+    bd.querySelectorAll(".formation-card").forEach(function(c){
+      c.addEventListener("click",function(){
+        bd.querySelectorAll(".formation-card").forEach(function(x){x.classList.remove("sel");});
+        c.classList.add("sel");selFi=parseInt(c.getAttribute("data-fi"),10);
+        document.getElementById("rr-confirm").disabled=false;
+      });
+    });
+    document.getElementById("rr-cancel").addEventListener("click",function(){bd.remove();});
+    bd.addEventListener("click",function(e){if(e.target===bd)bd.remove();});
+    document.getElementById("rr-confirm").addEventListener("click",function(){
+      if(selFi===null)return;
+      var f=fms[selFi];pushUndo();
+      var newCups=new Array(g.cupCount).fill(false);
+      f.slots.forEach(function(s){newCups[s]=true;});
+      if(team==="A")g.cupsA=newCups;else g.cupsB=newCups;
+      if(!g._rerackUsed)g._rerackUsed={};
+      g._rerackUsed[team]=true;
+      logFeed(g,"\ud83d\udd04 Re-rack \u2014 "+esc(tLabel)+" \u2192 "+f.name);
+      bd.remove();renderGameView();
+    });
+  }
+
   function renderGameView(){
     var g=state.current,screen=document.getElementById("screen");
     var tgt=g.throwingTeam==="A"?"B":"A";
@@ -710,6 +835,17 @@
 
     if(hasCtrl){
       if(g.phase==="throw1"||g.phase==="throw2"){
+        if(g.phase==="throw1"&&rerackAllowed(g)){
+          var rrRow='<div class="rerack-row">';
+          ["A","B"].forEach(function(tm){
+            if(rerackEligible(g,tm)){
+              var rc=tm==="A"?"var(--red)":"var(--blue)";
+              rrRow+='<button class="rerack-btn" data-rrteam="'+tm+'" style="border-color:'+rc+';color:'+rc+';">\ud83d\udd04 Re-rack '+esc(teamName(g,tm))+'</button>';
+            }
+          });
+          rrRow+='</div>';
+          html+=rrRow;
+        }
         html+='<div class="controls"><div class="ctl-label">who threw this ball \u2014 '+esc(teamName(g,g.throwingTeam))+'</div><div class="chips">';
         (g.throwingTeam==="A"?g.teamA:g.teamB).forEach(function(n){
           var isTmp=g.tempPlayers.indexOf(n)>=0;
@@ -745,6 +881,9 @@
         });
       });
       if(g.phase==="throw1"||g.phase==="throw2"){
+        screen.querySelectorAll(".rerack-btn[data-rrteam]").forEach(function(btn){
+          btn.addEventListener("click",function(){openRerackSheet(btn.getAttribute("data-rrteam"));});
+        });
         screen.querySelectorAll(".chip[data-thrower]").forEach(function(c){
           c.addEventListener("click",function(){g.selectedThrower=c.getAttribute("data-thrower");g.throwerIsSuggestion=false;renderGameView();});
         });
@@ -842,8 +981,15 @@
 
   function finalizePair(g){
     g.pendingPair={throws:[]};g.phase="throw1";
-    if(g._bothHit){logFeed(g,"\ud83d\udd01 Balls back \u2014 "+teamName(g,g.throwingTeam)+" throws again");}
-    else{g.throwingTeam=g.throwingTeam==="A"?"B":"A";logFeed(g,"\u21aa\ufe0f Turn over \u2014 "+teamName(g,g.throwingTeam)+" throws next");}
+    if(g._bothHit){
+      g._ballsBack=true;
+      logFeed(g,"\ud83d\udd01 Balls back \u2014 "+teamName(g,g.throwingTeam)+" throws again");
+    } else {
+      g._ballsBack=false;
+      g._rerackUsed={};
+      g.throwingTeam=g.throwingTeam==="A"?"B":"A";
+      logFeed(g,"\u21aa\ufe0f Turn over \u2014 "+teamName(g,g.throwingTeam)+" throws next");
+    }
     autoSelectThrower(g);
   }
 
