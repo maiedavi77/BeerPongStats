@@ -366,6 +366,9 @@
     document.getElementById("app").style.display="flex";
     var name=(state.profile&&state.profile.display_name)||(state.session&&state.session.user.email)||"";
     document.getElementById("user-badge").textContent=name;
+    // Only admins see the People tab
+    var peopleTab=document.querySelector('.tab[data-tab="people"]');
+    if(peopleTab) peopleTab.style.display=isAdmin()?"flex":"none";
     renderTab("play");
   }
 
@@ -390,6 +393,7 @@
     } else {
       await loadPeopleFromSupabase();
       showApp();
+      if(state.tab==="people") renderPeople();
     }
   }
 
@@ -466,6 +470,8 @@
   });
 
   function renderTab(tab){
+    // Non-admins cannot access the People tab
+    if(tab==="people"&&!isAdmin()) tab="play";
     state.tab=tab; state.current=null;
     document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});
     document.getElementById("fab").style.display=(tab==="play"||tab==="trichter")?"flex":"none";
@@ -1055,6 +1061,11 @@
      ============================================================ */
   function renderPeople(){
     var screen=document.getElementById("screen");
+    if(!state.profile){
+      screen.innerHTML='<div class="empty">Loading…</div>';
+      setTimeout(function(){ if(state.tab==="people") renderPeople(); }, 400);
+      return;
+    }
     var canInvite=isAdmin();
 
     var html='<div class="section-title">Registered players ('+state.people.length+')</div>';
