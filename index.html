@@ -366,7 +366,7 @@
     document.getElementById("app").style.display="flex";
     var name=(state.profile&&state.profile.display_name)||(state.session&&state.session.user.email)||"";
     document.getElementById("user-badge").textContent=name;
-    // Only admins see the People tab
+    // Hide People tab for non-admins
     var peopleTab=document.querySelector('.tab[data-tab="people"]');
     if(peopleTab) peopleTab.style.display=isAdmin()?"flex":"none";
     renderTab("play");
@@ -393,7 +393,6 @@
     } else {
       await loadPeopleFromSupabase();
       showApp();
-      if(state.tab==="people") renderPeople();
     }
   }
 
@@ -444,6 +443,9 @@
     state.session=null; state.profile=null;
     state.games=[]; state.current=null; state.undoStack=[];
     state.people=[]; state.trichters=[];
+    // Always hide People tab on sign-out
+    var pt=document.querySelector('.tab[data-tab="people"]');
+    if(pt) pt.style.display="none";
     showLoginScreen(false);
   });
 
@@ -470,7 +472,6 @@
   });
 
   function renderTab(tab){
-    // Non-admins cannot access the People tab
     if(tab==="people"&&!isAdmin()) tab="play";
     state.tab=tab; state.current=null;
     document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});
@@ -1061,11 +1062,6 @@
      ============================================================ */
   function renderPeople(){
     var screen=document.getElementById("screen");
-    if(!state.profile){
-      screen.innerHTML='<div class="empty">Loading…</div>';
-      setTimeout(function(){ if(state.tab==="people") renderPeople(); }, 400);
-      return;
-    }
     var canInvite=isAdmin();
 
     var html='<div class="section-title">Registered players ('+state.people.length+')</div>';
