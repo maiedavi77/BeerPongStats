@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdn.jsdelivr.net 'sha256-yE27OY0QxsqyuIcBb5IQj928fmfsy7iRzDjCJyPQ7s4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https: wss:; img-src 'self' data: https:;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
 <title>Racked</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -429,8 +428,16 @@
      SUPABASE AUTH STATE LISTENER
      Fires once on page load (INITIAL_SESSION) and on any change.
      ============================================================ */
+  // Safety net: if Supabase never fires INITIAL_SESSION (e.g. network error),
+  // show the login screen after 8 seconds instead of spinning forever.
+  var _authResolved = false;
+  setTimeout(function(){
+    if(!_authResolved){ hideLoading(); showLoginScreen(); }
+  }, 8000);
+
   sb.auth.onAuthStateChange(async function(event,session){
     if(event==="INITIAL_SESSION"){
+      _authResolved = true;
       if(session){ await onSignedIn(session); }
       else{ hideLoading(); showLoginScreen(); }
     }
