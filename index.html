@@ -45,8 +45,6 @@
   .login-field input:focus{outline:none;border-color:var(--amber);}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:10px 13px;font-size:13px;color:#F2A093;margin-bottom:14px;display:none;}
   .login-error.visible{display:block;}
-  .must-change-banner{background:var(--amber-dim);border:1px solid rgba(242,169,59,0.4);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--amber);margin-bottom:16px;display:none;line-height:1.5;}
-  .must-change-banner.visible{display:block;}
   .pw-field{margin-bottom:12px;}
   .pw-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
   .pw-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:12px 13px;font-size:14px;}
@@ -62,6 +60,11 @@
   .user-badge{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);padding:5px 9px;border-radius:99px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .signout-btn{background:none;border:1px solid var(--line);color:var(--text-faint);border-radius:99px;padding:5px 9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;cursor:pointer;}
   .signout-btn:hover{border-color:var(--red);color:#E8897C;}
+  /* ===== USER DEACTIVATION ===== */
+  .inactive-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;padding:3px 7px;border-radius:99px;background:var(--red-dim);color:#E8897C;border:1px solid rgba(226,64,45,0.35);margin-left:7px;vertical-align:middle;}
+  .toggle-active-btn{flex:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface-2);color:var(--text-faint);}
+  .toggle-active-btn.deactivate{border-color:rgba(226,64,45,0.35);color:#E8897C;}
+  .toggle-active-btn.activate{border-color:rgba(116,182,135,0.4);color:var(--green);}
 
   /* ===== LAYOUT ===== */
   .screen{padding:18px 18px 24px;flex:1;}
@@ -410,7 +413,6 @@
     if(e.key==="Enter")document.getElementById("login-btn").click();
   });
 
-
   /* ============================================================
      SIGN OUT
      ============================================================ */
@@ -430,14 +432,12 @@
      ============================================================ */
   // Safety net: if Supabase never fires INITIAL_SESSION (e.g. network error),
   // show the login screen after 8 seconds instead of spinning forever.
-  var _authResolved = false;
-  setTimeout(function(){
-    if(!_authResolved){ hideLoading(); showLoginScreen(); }
-  }, 8000);
+  var _authResolved=false;
+  setTimeout(function(){ if(!_authResolved){ hideLoading(); showLoginScreen(); } },8000);
 
   sb.auth.onAuthStateChange(async function(event,session){
     if(event==="INITIAL_SESSION"){
-      _authResolved = true;
+      _authResolved=true;
       if(session){ await onSignedIn(session); }
       else{ hideLoading(); showLoginScreen(); }
     }
@@ -1077,6 +1077,7 @@
   }
 
   function rerackEligible(g, team){
+    // Only the DEFENDING team (whose cups are targeted) can re-rack — not the throwing team
     if(team===g.throwingTeam) return false;
     var cups=team==="A"?g.cupsA:g.cupsB;
     var standing=cups.filter(Boolean).length;
@@ -1164,6 +1165,8 @@
     if(isActive&&g.phase==="bonus")
       html+='<div class="bonus-banner">'+bonusReasonText(g)+' \u2014 pick exactly '+g.bonusRequired+' cup'+(g.bonusRequired===1?"":"s")+' to remove</div>';
 
+    // Re-rack: shown ABOVE the pyramid for the defending team (tgt),
+    // only at the start of a new turn (throw1, not balls-back).
     if(isActive&&rerackAllowed(g)&&rerackEligible(g,tgt)){
       var rrCol=tgt==="A"?"var(--red)":"var(--blue)";
       html+='<div class="rerack-row"><button class="rerack-btn" data-rrteam="'+tgt+'" style="border-color:'+rrCol+';color:'+rrCol+';">\ud83d\udd04 Re-rack '+esc(teamName(g,tgt))+'</button></div>';
@@ -1203,9 +1206,7 @@
       document.getElementById("undo-btn").addEventListener("click",doUndo);
       document.getElementById("cancel-game-btn").addEventListener("click",function(){
         confirmDialog("Cancel this game? It won\u2019t count toward stats.",true,function(){
-          g.status="cancelled";g.phase="cancelled";
-          dbUpdateGame(g).catch(function(e){console.error("[DB] cancel:",e);});
-          state.current=null;renderTab("play");
+          g.status="cancelled";g.phase="cancelled";state.current=null;renderTab("play");
         });
       });
       if(g.phase==="throw1"||g.phase==="throw2"){
@@ -1277,6 +1278,7 @@
     var di=hi.filter(function(v,i){return hi.indexOf(v)===i;});
     di.forEach(function(i){cups[i]=false;});
     if(di.length)logFeed(g,"\ud83c\udfaf "+di.length+" cup"+(di.length>1?"s":"")+" removed");
+    // Async background write of throws + cup updates
     (function(t1c,t2c,dic){ dbWriteThrowPair(g,t1c,t2c,dic).catch(function(e){console.error("[DB] throwPair:",e);}); })(t1,t2,di.slice());
     if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);return;}
     var dc=(t1.outcome==="hit"&&t1.dodge?1:0)+(t2.outcome==="hit"&&t2.dodge?1:0);
@@ -1536,6 +1538,11 @@
      ============================================================ */
   function renderPeople(){
     var screen=document.getElementById("screen");
+    if(!state.profile){
+      screen.innerHTML='<div class="empty">Loading\u2026</div>';
+      setTimeout(function(){ if(state.tab==="people") renderPeople(); },500);
+      return;
+    }
     var canInvite=isAdmin();
 
     var html='<div class="section-title">Registered players ('+state.people.length+')</div>';
@@ -1545,9 +1552,20 @@
       html+='<div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0;">';
       state.people.forEach(function(p,i){
         var isMe=state.session&&state.profile&&p.id===state.session.user.id;
-        html+='<div class="people-row" style="'+(i>0?'border-top:1px solid var(--line);':'')+'">'
-          +'<div><div class="nm">'+esc(p.name)+(isMe?'<span class="you-badge">you</span>':'')+'</div>'
-          +(p.email?'<div class="em">'+esc(p.email)+'</div>':'')+'</div>'
+        var active=p.is_active!==false;
+        var rowStyle=(i>0?'border-top:1px solid var(--line);':'')+(active?'':'opacity:0.55;');
+        html+='<div class="people-row" style="'+rowStyle+'">'
+          +'<div style="flex:1;min-width:0;">'
+            +'<div class="nm">'+esc(p.name)
+              +(isMe?'<span class="you-badge">you</span>':'')
+              +(p.is_admin?'<span class="admin-badge">admin</span>':'')
+              +(!active?'<span class="inactive-badge">inactive</span>':'')
+            +'</div>'
+            +(p.email?'<div class="em">'+esc(p.email)+'</div>':'')
+          +'</div>'
+          +(canInvite&&!isMe
+            ?'<button class="toggle-active-btn '+(active?'deactivate':'activate')+'" data-uid="'+esc(p.id)+'" data-active="'+(active?'1':'0')+'">'+(active?'Deactivate':'Activate')+'</button>'
+            :'')
           +'</div>';
       });
       html+='</div>';
@@ -1569,6 +1587,32 @@
     screen.innerHTML=html;
 
     if(canInvite){
+      // Wire deactivate/activate buttons
+      screen.querySelectorAll(".toggle-active-btn").forEach(function(btn){
+        btn.addEventListener("click",async function(){
+          var uid=btn.getAttribute("data-uid");
+          var currentlyActive=btn.getAttribute("data-active")==="1";
+          var newActive=!currentlyActive;
+          var person=state.people.find(function(p){return p.id===uid;});
+          var pName=person?person.name:uid;
+          confirmDialog(
+            (newActive?"Activate":"Deactivate")+" "+pName+"? They will "+(newActive?"regain":"lose")+" access immediately.",
+            !newActive,
+            async function(){
+              btn.disabled=true;
+              var res=await sb.functions.invoke("toggle-user-active",{body:{user_id:uid,is_active:newActive}});
+              if(res.error||(res.data&&res.data.error)){
+                toast("Failed: "+((res.data&&res.data.error)||res.error.message||"unknown error"));
+                btn.disabled=false; return;
+              }
+              await loadPeopleFromSupabase();
+              toast(pName+(newActive?" activated \u2014 they can sign in again.":" deactivated \u2014 access revoked."));
+              renderPeople();
+            }
+          );
+        });
+      });
+
       var errEl=document.getElementById("invite-error");
       function showInvErr(msg){errEl.textContent=msg;errEl.classList.add("visible");}
       function hideInvErr(){errEl.textContent="";errEl.classList.remove("visible");}
@@ -1581,7 +1625,7 @@
         if(name.length>24){showInvErr("Display name must be 24 characters or fewer.");return;}
         if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showInvErr("Enter a valid email address.");return;}
 
-        var btn=this; btn.disabled=true; btn.textContent="Inviting\u2026";
+        var btn=this; btn.disabled=true; btn.textContent="Sending\u2026";
 
         var res=await sb.functions.invoke("admin-invite-user",{
           body:{email:email,display_name:name}
