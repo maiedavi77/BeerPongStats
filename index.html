@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdn.jsdelivr.net 'sha256-h3bQBV0A0K0HYUSvvVqQcpm/jNiKtOGiUfyNfQ7x1Rg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https: wss:; img-src 'self' data: https:;">
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdn.jsdelivr.net 'sha256-yE27OY0QxsqyuIcBb5IQj928fmfsy7iRzDjCJyPQ7s4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https: wss:; img-src 'self' data: https:;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
 <title>Racked</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,6 +46,12 @@
   .login-field input:focus{outline:none;border-color:var(--amber);}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:10px 13px;font-size:13px;color:#F2A093;margin-bottom:14px;display:none;}
   .login-error.visible{display:block;}
+  .must-change-banner{background:var(--amber-dim);border:1px solid rgba(242,169,59,0.4);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--amber);margin-bottom:16px;display:none;line-height:1.5;}
+  .must-change-banner.visible{display:block;}
+  .pw-field{margin-bottom:12px;}
+  .pw-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
+  .pw-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:12px 13px;font-size:14px;}
+  .pw-field input:focus{outline:none;border-color:var(--amber);}
 
   /* ===== APP SHELL ===== */
   #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:78px;}
@@ -271,7 +277,7 @@
     </div>
     <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
     <p style="font-size:11.5px;color:var(--text-faint);text-align:center;margin:14px 0 0;line-height:1.5;">
-      New here? Check your email for an invite link from your admin.
+      New here? Check your email for an invite link.
     </p>
   </div>
 </div>
@@ -357,6 +363,8 @@
     document.getElementById("app").style.display="flex";
     var name=(state.profile&&state.profile.display_name)||(state.session&&state.session.user.email)||"";
     document.getElementById("user-badge").textContent=name;
+    var peopleTab=document.querySelector('.tab[data-tab="people"]');
+    if(peopleTab) peopleTab.style.display=isAdmin()?"flex":"none";
     renderTab("play");
   }
 
@@ -366,9 +374,12 @@
   }
 
   async function loadPeopleFromSupabase(){
-    var r=await sb.from("profiles").select("id,display_name,email").order("display_name");
+    var fields=isAdmin()?"id,display_name,email,is_active,is_admin":"id,display_name,is_active,is_admin";
+    var r=await sb.from("profiles").select(fields).order("display_name");
     if(r.data){
-      state.people=r.data.map(function(p){return{name:p.display_name,email:p.email,id:p.id};});
+      state.people=r.data.map(function(p){
+        return{name:p.display_name,email:p.email||null,id:p.id,is_active:p.is_active!==false,is_admin:!!p.is_admin};
+      });
     }
   }
 
@@ -377,6 +388,7 @@
     state.profile=await fetchProfile(session.user.id);
     hideLoading();
     await loadPeopleFromSupabase();
+    await dbLoadGames();
     showApp();
   }
 
@@ -408,6 +420,8 @@
     state.session=null; state.profile=null;
     state.games=[]; state.current=null; state.undoStack=[];
     state.people=[]; state.trichters=[];
+    var pt=document.querySelector('.tab[data-tab="people"]');
+    if(pt) pt.style.display="none";
     showLoginScreen();
   });
 
@@ -434,6 +448,7 @@
   });
 
   function renderTab(tab){
+    if(tab==="people"&&!isAdmin()) tab="play";
     state.tab=tab; state.current=null;
     document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===tab);});
     document.getElementById("fab").style.display=(tab==="play"||tab==="trichter")?"flex":"none";
@@ -565,8 +580,10 @@
       if(!tA.length||!tB.length){toast("Each team needs at least one player");return;}
       var ov=tA.filter(function(n){return tB.some(function(b){return b.toLowerCase()===n.toLowerCase();});});
       if(ov.length){toast(ov[0]+" can't be on both teams");return;}
+      var nameA=document.getElementById("nameA").value.trim()||"Team A";
+      var nameB=document.getElementById("nameB").value.trim()||"Team B";
       bd.remove();
-      startNewGame(tA,tB,document.getElementById("nameA").value.trim()||"Team A",document.getElementById("nameB").value.trim()||"Team B",cupCount,firstTeam);
+      startNewGame(tA,tB,nameA,nameB,cupCount,firstTeam);
     });
   }
 
@@ -997,30 +1014,37 @@
 
   var RERACK_FORMATIONS = {
     10: [
+      {cups:9, name:"Diamond",        slots:[0,1,2,3,4,5,6,7,8]},
+      {cups:8, name:"Tight pack",     slots:[0,1,2,3,4,5,6,9]},
+      {cups:8, name:"Diamond +1",     slots:[0,1,2,4,5,6,7,9]},
+      {cups:7, name:"Triangle",       slots:[0,1,2,4,5,7,9]},
+      {cups:7, name:"House",          slots:[0,1,4,5,6,7,9]},
       {cups:6, name:"Triangle",       slots:[0,1,2,4,5,9]},
-      {cups:6, name:"Rev. Triangle",  slots:[4,5,6,7,8,9]},
-      {cups:6, name:"Diamond",        slots:[1,4,6,8,9,5]},
+      {cups:6, name:"Rev. triangle",  slots:[4,5,6,7,8,9]},
+      {cups:6, name:"Diamond",        slots:[1,4,6,7,8,9]},
       {cups:5, name:"House",          slots:[0,4,5,8,9]},
       {cups:5, name:"Triangle",       slots:[0,1,4,5,9]},
       {cups:5, name:"Diamond",        slots:[1,4,6,8,9]},
-      {cups:4, name:"Diamond",        slots:[0,5,8,9]},
+      {cups:5, name:"Line",           slots:[0,4,7,8,9]},
+      {cups:4, name:"Diamond",        slots:[0,5,7,9]},
       {cups:4, name:"Square",         slots:[4,5,7,8]},
       {cups:4, name:"T-shape",        slots:[4,5,6,9]},
       {cups:4, name:"Line",           slots:[0,4,8,9]},
       {cups:3, name:"Triangle",       slots:[0,5,9]},
       {cups:3, name:"Line",           slots:[7,8,9]},
-      {cups:3, name:"Rev. Triangle",  slots:[4,8,9]},
+      {cups:3, name:"Rev. triangle",  slots:[4,8,9]},
       {cups:2, name:"Side by side",   slots:[7,8]},
       {cups:2, name:"Front-back",     slots:[0,9]},
       {cups:1, name:"Single",         slots:[9]}
     ],
     6: [
+      {cups:5, name:"Near full",      slots:[0,1,2,3,4]},
       {cups:4, name:"Diamond",        slots:[0,3,4,5]},
       {cups:4, name:"Square",         slots:[0,1,3,5]},
-      {cups:4, name:"Line",           slots:[0,3,4,5]},
+      {cups:4, name:"Reverse",        slots:[1,2,3,5]},
       {cups:3, name:"Triangle",       slots:[0,3,5]},
+      {cups:3, name:"Rev. triangle",  slots:[1,4,5]},
       {cups:3, name:"Line",           slots:[3,4,5]},
-      {cups:3, name:"Rev. Triangle",  slots:[1,4,5]},
       {cups:2, name:"Side by side",   slots:[3,4]},
       {cups:2, name:"Front-back",     slots:[0,5]},
       {cups:1, name:"Single",         slots:[5]}
@@ -1046,6 +1070,7 @@
   }
 
   function rerackEligible(g, team){
+    if(team===g.throwingTeam) return false;
     var cups=team==="A"?g.cupsA:g.cupsB;
     var standing=cups.filter(Boolean).length;
     if(standing===g.cupCount||standing===0) return false;
@@ -1102,6 +1127,7 @@
       if(!g._rerackUsed)g._rerackUsed={};
       g._rerackUsed[team]=true;
       logFeed(g,"\ud83d\udd04 Re-rack \u2014 "+esc(tLabel)+" \u2192 "+f.name);
+      dbWriteRerack(g,team,newCups,f.name).catch(function(e){console.error("[DB] rerack:",e);});
       bd.remove();
       renderGameView();
     });
@@ -1131,21 +1157,14 @@
     if(isActive&&g.phase==="bonus")
       html+='<div class="bonus-banner">'+bonusReasonText(g)+' \u2014 pick exactly '+g.bonusRequired+' cup'+(g.bonusRequired===1?"":"s")+' to remove</div>';
 
+    if(isActive&&rerackAllowed(g)&&rerackEligible(g,tgt)){
+      var rrCol=tgt==="A"?"var(--red)":"var(--blue)";
+      html+='<div class="rerack-row"><button class="rerack-btn" data-rrteam="'+tgt+'" style="border-color:'+rrCol+';color:'+rrCol+';">\ud83d\udd04 Re-rack '+esc(teamName(g,tgt))+'</button></div>';
+    }
     html+=pyramidZoneHtml(g,tgt,hasCtrl);
 
     if(hasCtrl){
       if(g.phase==="throw1"||g.phase==="throw2"){
-        if(g.phase==="throw1"&&rerackAllowed(g)){
-          var rrRow='<div class="rerack-row">';
-          ["A","B"].forEach(function(tm){
-            if(rerackEligible(g,tm)){
-              var rc=tm==="A"?"var(--red)":"var(--blue)";
-              rrRow+='<button class="rerack-btn" data-rrteam="'+tm+'" style="border-color:'+rc+';color:'+rc+';">\ud83d\udd04 Re-rack '+esc(teamName(g,tm))+'</button>';
-            }
-          });
-          rrRow+='</div>';
-          html+=rrRow;
-        }
         html+='<div class="controls"><div class="ctl-label">who threw this ball \u2014 '+esc(teamName(g,g.throwingTeam))+'</div><div class="chips">';
         (g.throwingTeam==="A"?g.teamA:g.teamB).forEach(function(n){
           var isTmp=g.tempPlayers.indexOf(n)>=0;
@@ -1177,7 +1196,9 @@
       document.getElementById("undo-btn").addEventListener("click",doUndo);
       document.getElementById("cancel-game-btn").addEventListener("click",function(){
         confirmDialog("Cancel this game? It won\u2019t count toward stats.",true,function(){
-          g.status="cancelled";g.phase="cancelled";state.current=null;renderTab("play");
+          g.status="cancelled";g.phase="cancelled";
+          dbUpdateGame(g).catch(function(e){console.error("[DB] cancel:",e);});
+          state.current=null;renderTab("play");
         });
       });
       if(g.phase==="throw1"||g.phase==="throw2"){
@@ -1249,6 +1270,7 @@
     var di=hi.filter(function(v,i){return hi.indexOf(v)===i;});
     di.forEach(function(i){cups[i]=false;});
     if(di.length)logFeed(g,"\ud83c\udfaf "+di.length+" cup"+(di.length>1?"s":"")+" removed");
+    (function(t1c,t2c,dic){ dbWriteThrowPair(g,t1c,t2c,dic).catch(function(e){console.error("[DB] throwPair:",e);}); })(t1,t2,di.slice());
     if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);return;}
     var dc=(t1.outcome==="hit"&&t1.dodge?1:0)+(t2.outcome==="hit"&&t2.dodge?1:0);
     var sc=g._bothHit&&t1.cupIndex===t2.cupIndex;
@@ -1272,9 +1294,11 @@
     if(g.bonusSelected.length!==g.bonusRequired)return;
     pushUndo();
     var cups=g._targetTeam==="A"?g.cupsA:g.cupsB;
+    var bonusIdxCopy=g.bonusSelected.slice();
     g.bonusSelected.forEach(function(i){cups[i]=false;});
-    logFeed(g,"\ud83d\udca5 Bonus: "+g.bonusSelected.length+" extra cup"+(g.bonusSelected.length>1?"s":"")+" removed");
+    logFeed(g,"\ud83d\udca5 Bonus: "+bonusIdxCopy.length+" extra cup"+(bonusIdxCopy.length>1?"s":"")+" removed");
     g.bonusSelected=[];
+    dbWriteBonus(g,bonusIdxCopy).catch(function(e){console.error("[DB] bonus:",e);});
     if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);renderGameView();return;}
     finalizePair(g);renderGameView();
   }
@@ -1297,6 +1321,7 @@
     g.status="complete";g.phase="complete";g.winner=winner;g.endedAt=Date.now();
     logFeed(g,"\ud83c\udfc6 "+teamName(g,winner)+" wins!");
     toast("Game logged \ud83c\udfc6");
+    dbUpdateGame(g).catch(function(e){console.error("[DB] completeGame:",e);});
   }
 
   /* ============================================================
@@ -1529,7 +1554,7 @@
           +'<button class="btn btn-primary btn-block" id="invite-btn">Send invite</button>'
           +'<div class="invite-error" id="invite-error"></div>'
         +'</div>'
-        +'<p style="font-size:11.5px;color:var(--text-faint);margin:12px 0 0;line-height:1.5;">They will receive an email with a secure one-time link to set their own password.</p>';
+        +'<p style="font-size:11.5px;color:var(--text-faint);margin:12px 0 0;line-height:1.5;">They will receive a secure one-time link to set their own password.</p>';
     } else {
       html+='<p style="font-size:11.5px;color:var(--text-faint);margin:14px 0 0;line-height:1.5;">Only admins can invite new players.</p>';
     }
