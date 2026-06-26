@@ -2,6 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  connect-src https://*.supabase.co wss://*.supabase.co;
+  img-src 'self' data: https:;
+  frame-ancestors 'none';
+">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
 <title>Racked</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -391,9 +400,15 @@
   }
 
   async function loadPeopleFromSupabase(){
-    var r=await sb.from("profiles").select("id,display_name,email").order("display_name");
+    // Admins see emails; regular users only see names, IDs and status flags
+    var fields=isAdmin()
+      ?"id,display_name,email,is_active,is_admin"
+      :"id,display_name,is_active,is_admin";
+    var r=await sb.from("profiles").select(fields).order("display_name");
     if(r.data){
-      state.people=r.data.map(function(p){return{name:p.display_name,email:p.email,id:p.id};});
+      state.people=r.data.map(function(p){
+        return{name:p.display_name,email:p.email||null,id:p.id,is_active:p.is_active!==false,is_admin:!!p.is_admin};
+      });
     }
   }
 
@@ -1607,7 +1622,10 @@
         var pw=document.getElementById("np-pw").value;
         hideInvErr();
         if(!name||!email||!pw){showInvErr("All three fields are required.");return;}
+        if(name.length>24){showInvErr("Display name must be 24 characters or fewer.");return;}
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showInvErr("Enter a valid email address.");return;}
         if(pw.length<8){showInvErr("Temporary password must be at least 8 characters.");return;}
+        if(pw.length>72){showInvErr("Password must be 72 characters or fewer.");return;}
 
         var btn=this; btn.disabled=true; btn.textContent="Inviting\u2026";
 
