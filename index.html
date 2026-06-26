@@ -2,15 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="
-  default-src 'none';
-  script-src 'self' https://cdn.jsdelivr.net;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  font-src https://fonts.gstatic.com;
-  connect-src https://*.supabase.co wss://*.supabase.co;
-  img-src 'self' data: https:;
-  frame-ancestors 'none';
-">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; frame-ancestors 'none';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
 <title>Racked</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,12 +46,8 @@
   .login-field input:focus{outline:none;border-color:var(--amber);}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:10px 13px;font-size:13px;color:#F2A093;margin-bottom:14px;display:none;}
   .login-error.visible{display:block;}
-  .must-change-banner{background:var(--amber-dim);border:1px solid rgba(242,169,59,0.4);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--amber);margin-bottom:16px;display:none;line-height:1.5;}
-  .must-change-banner.visible{display:block;}
-  .pw-field{margin-bottom:12px;}
-  .pw-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
-  .pw-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:12px 13px;font-size:14px;}
-  .pw-field input:focus{outline:none;border-color:var(--amber);}
+
+
 
   /* ===== APP SHELL ===== */
   #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:78px;}
@@ -243,22 +231,6 @@
   #toast-zone{position:fixed;top:70px;left:0;right:0;z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
   .toast{background:var(--surface-3);border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:99px;font-size:12.5px;animation:toastin .25s ease-out;}
   @keyframes toastin{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
-
-  /* ===== RE-RACK ===== */
-  .rerack-row{display:flex;gap:8px;margin-bottom:2px;}
-  .rerack-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:99px;border:1.5px solid var(--line);background:var(--surface);font-size:12px;font-weight:600;cursor:pointer;}
-  .rerack-btn:active{opacity:0.7;}
-  .rerack-formations{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
-  .formation-card{background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:12px 8px 10px;cursor:pointer;text-align:center;}
-  .formation-card.sel{background:var(--amber-dim);border-color:var(--amber);}
-  .formation-name{font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text);}
-  .formation-preview{display:flex;flex-direction:column;align-items:center;gap:5px;min-height:46px;justify-content:center;}
-  .formation-preview .fp-row{display:flex;gap:5px;justify-content:center;}
-  .fp-cup{width:13px;height:11px;clip-path:polygon(14% 0%,86% 0%,100% 100%,0% 100%);}
-  .fp-cup.A{background:linear-gradient(180deg,#F2604B,var(--red));}
-  .fp-cup.B{background:linear-gradient(180deg,#5AA3DE,var(--blue));}
-  .rerack-note{font-size:11.5px;color:var(--text-faint);text-align:center;margin-top:10px;line-height:1.5;}
-
 </style>
 </head>
 <body>
@@ -267,43 +239,26 @@
 <!-- Spinner shown while Supabase checks the existing session -->
 <div id="loading-screen"><div class="spinner"></div></div>
 
-<!-- Login / force-change-password screen -->
+<!-- Login screen -->
 <div id="login-screen">
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
       <small>beer pong tracker</small>
     </div>
-    <div class="must-change-banner" id="must-change-banner">
-      Your admin set a temporary password. Please choose a new one to continue.
-    </div>
     <div class="login-error" id="login-error"></div>
-
-    <!-- Step 1: sign in -->
-    <div id="login-step-1">
-      <div class="login-field">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
-      </div>
-      <div class="login-field">
-        <label>Password</label>
-        <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
-      </div>
-      <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
     </div>
-
-    <!-- Step 2: force change password -->
-    <div id="login-step-2" style="display:none;">
-      <div class="pw-field">
-        <label>New password</label>
-        <input type="password" id="new-pw" placeholder="At least 8 characters" autocomplete="new-password" />
-      </div>
-      <div class="pw-field">
-        <label>Confirm new password</label>
-        <input type="password" id="new-pw-confirm" placeholder="Repeat password" autocomplete="new-password" />
-      </div>
-      <button class="btn btn-primary btn-block" id="change-pw-btn">Set password &amp; continue</button>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
     </div>
+    <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+    <p style="font-size:11.5px;color:var(--text-faint);text-align:center;margin:14px 0 0;line-height:1.5;">
+      New here? Check your email for an invite link from your admin.
+    </p>
   </div>
 </div>
 
@@ -377,12 +332,9 @@
     el.textContent=msg||""; el.classList.toggle("visible",!!msg);
   }
 
-  function showLoginScreen(mustChange){
+  function showLoginScreen(){
     document.getElementById("app").style.display="none";
     document.getElementById("login-screen").classList.add("visible");
-    document.getElementById("must-change-banner").classList.toggle("visible",!!mustChange);
-    document.getElementById("login-step-1").style.display=mustChange?"none":"";
-    document.getElementById("login-step-2").style.display=mustChange?"":"none";
     setAuthError("");
   }
 
@@ -400,15 +352,9 @@
   }
 
   async function loadPeopleFromSupabase(){
-    // Admins see emails; regular users only see names, IDs and status flags
-    var fields=isAdmin()
-      ?"id,display_name,email,is_active,is_admin"
-      :"id,display_name,is_active,is_admin";
-    var r=await sb.from("profiles").select(fields).order("display_name");
+    var r=await sb.from("profiles").select("id,display_name,email").order("display_name");
     if(r.data){
-      state.people=r.data.map(function(p){
-        return{name:p.display_name,email:p.email||null,id:p.id,is_active:p.is_active!==false,is_admin:!!p.is_admin};
-      });
+      state.people=r.data.map(function(p){return{name:p.display_name,email:p.email,id:p.id};});
     }
   }
 
@@ -416,13 +362,8 @@
     state.session=session;
     state.profile=await fetchProfile(session.user.id);
     hideLoading();
-    if(state.profile&&state.profile.must_change_password){
-      showLoginScreen(true);
-    } else {
-      await loadPeopleFromSupabase();
-      await dbLoadGames();
-      showApp();
-    }
+    await loadPeopleFromSupabase();
+    showApp();
   }
 
   /* ============================================================
@@ -444,25 +385,6 @@
     if(e.key==="Enter")document.getElementById("login-btn").click();
   });
 
-  /* ============================================================
-     FORCE-CHANGE PASSWORD BUTTON
-     ============================================================ */
-  document.getElementById("change-pw-btn").addEventListener("click",async function(){
-    var pw=document.getElementById("new-pw").value;
-    var pw2=document.getElementById("new-pw-confirm").value;
-    if(pw.length<8){setAuthError("Password must be at least 8 characters.");return;}
-    if(pw!==pw2){setAuthError("Passwords don\u2019t match.");return;}
-    setAuthError("");
-    this.disabled=true; this.textContent="Saving\u2026";
-    var r=await sb.auth.updateUser({password:pw});
-    if(r.error){setAuthError(r.error.message);this.disabled=false;this.textContent="Set password & continue";return;}
-    await sb.from("profiles").update({must_change_password:false}).eq("id",state.session.user.id);
-    if(state.profile)state.profile.must_change_password=false;
-    toast("Password updated \u2014 welcome!");
-    await loadPeopleFromSupabase();
-    showApp();
-    this.disabled=false; this.textContent="Set password & continue";
-  });
 
   /* ============================================================
      SIGN OUT
@@ -472,7 +394,7 @@
     state.session=null; state.profile=null;
     state.games=[]; state.current=null; state.undoStack=[];
     state.people=[]; state.trichters=[];
-    showLoginScreen(false);
+    showLoginScreen();
   });
 
   /* ============================================================
@@ -482,10 +404,10 @@
   sb.auth.onAuthStateChange(async function(event,session){
     if(event==="INITIAL_SESSION"){
       if(session){ await onSignedIn(session); }
-      else{ hideLoading(); showLoginScreen(false); }
+      else{ hideLoading(); showLoginScreen(); }
     }
     if(event==="TOKEN_REFRESHED"&&session){ state.session=session; }
-    if(event==="SIGNED_OUT"){ hideLoading(); showLoginScreen(false); }
+    if(event==="SIGNED_OUT"){ hideLoading(); showLoginScreen(); }
   });
 
   /* ============================================================
@@ -634,339 +556,6 @@
     });
   }
 
-
-  /* ============================================================
-     DATABASE SYNC LAYER
-     All writes are fire-and-forget (optimistic). The UI never
-     waits for Supabase — state is updated locally first, then
-     synced in the background. On page load, state is rebuilt
-     from Supabase so nothing is lost on refresh.
-     ============================================================ */
-
-  // Active event ID — one event per session, stored in localStorage
-  // so refresh reuses the same event instead of creating a new one.
-  function getEventId(){ return localStorage.getItem('racked_event_id')||null; }
-  function setEventId(id){ localStorage.setItem('racked_event_id', id); }
-
-  async function ensureEvent(){
-    var eid = getEventId();
-    if(eid){
-      // Verify it still exists and we're a participant
-      var r = await sb.from('event_participants').select('event_id').eq('event_id',eid).eq('user_id',state.session.user.id).single();
-      if(r.data) return eid;
-    }
-    // Create a new event
-    var today = new Date().toLocaleDateString('de-DE');
-    var ins = await sb.from('events').insert({
-      name: 'Session '+today,
-      created_by: state.session.user.id
-    }).select('id').single();
-    if(ins.error){ console.error('[DB] ensureEvent:', ins.error); return null; }
-    var eid2 = ins.data.id;
-    // Add creator as participant
-    await sb.from('event_participants').insert({
-      event_id: eid2, user_id: state.session.user.id,
-      role: 'creator', invited_by: state.session.user.id
-    });
-    setEventId(eid2);
-    return eid2;
-  }
-
-  // Map a person name to a profile ID (null if guest/temp)
-  function personId(name){
-    var p = state.people.find(function(x){ return x.name===name; });
-    return p ? p.id : null;
-  }
-
-  // Create game + cups rows in Supabase
-  async function dbCreateGame(g){
-    var eid = await ensureEvent();
-    if(!eid) return;
-    g._eventId = eid;
-
-    // Insert game row
-    var gr = await sb.from('games').insert({
-      id: g.id,
-      event_id: eid,
-      cup_count: g.cupCount,
-      status: 'active',
-      started_by: state.session.user.id
-    });
-    if(gr.error){ console.error('[DB] insert game:', gr.error); return; }
-
-    // Insert cup rows for both teams (10 or 6 per team)
-    var cupRows = [];
-    for(var i=0;i<g.cupCount;i++){
-      cupRows.push({game_id:g.id,team:'A',rack_position:i,status:'standing'});
-      cupRows.push({game_id:g.id,team:'B',rack_position:i,status:'standing'});
-    }
-    // Store cup DB IDs on the game object for later updates
-    var cr = await sb.from('cups').insert(cupRows).select('id,team,rack_position');
-    if(cr.error){ console.error('[DB] insert cups:', cr.error); return; }
-    // Build lookup: g._cupIds[team][position] = uuid
-    g._cupIds = {A:{},B:{}};
-    cr.data.forEach(function(c){ g._cupIds[c.team][c.rack_position] = c.id; });
-
-    // Add event participants for players that have accounts
-    var allPlayers = g.teamA.concat(g.teamB);
-    var pInserts = [];
-    allPlayers.forEach(function(name){
-      var pid = personId(name);
-      if(pid && pid !== state.session.user.id){
-        pInserts.push({event_id:eid,user_id:pid,role:'participant',invited_by:state.session.user.id});
-      }
-    });
-    if(pInserts.length){
-      // upsert to avoid duplicate key if they're already in the event
-      await sb.from('event_participants').upsert(pInserts, {onConflict:'event_id,user_id',ignoreDuplicates:true});
-    }
-
-    // Insert game_participants (team membership)
-    var gpRows = [];
-    g.teamA.forEach(function(name,i){
-      var pid=personId(name);
-      gpRows.push({game_id:g.id,team:'A',participant_type:pid?'user':'temp',user_id:pid||null,throw_order:i});
-    });
-    g.teamB.forEach(function(name,i){
-      var pid=personId(name);
-      gpRows.push({game_id:g.id,team:'B',participant_type:pid?'user':'temp',user_id:pid||null,throw_order:i});
-    });
-    await sb.from('game_participants').insert(gpRows);
-    console.log('[DB] game created:', g.id);
-  }
-
-  // Write a completed throw pair to Supabase
-  async function dbWriteThrowPair(g, t1, t2, hitIndices){
-    if(!g._cupIds) return;
-    var seqBase = g.allThrows.length - 2; // these are the last 2 throws
-
-    // Insert throw rows
-    var throwRows = [t1,t2].map(function(t,i){
-      var pid = personId(t.thrower);
-      return {
-        game_id: g.id,
-        sequence_no: seqBase + i,
-        thrower_type: pid ? 'user' : 'temp',
-        thrower_user_id: pid || null,
-        throwing_team: t.team,
-        outcome: t.outcome,
-        logged_by: state.session.user.id
-      };
-    });
-    var tr = await sb.from('throws').insert(throwRows).select('id,sequence_no');
-    if(tr.error){ console.error('[DB] insert throws:', tr.error); return; }
-
-    // Update hit cups
-    var targetTeam = t1.team==='A'?'B':'A';
-    for(var i=0;i<hitIndices.length;i++){
-      var pos = hitIndices[i];
-      var cupId = g._cupIds[targetTeam][pos];
-      if(cupId){
-        await sb.from('cups').update({status:'hit'}).eq('id',cupId);
-        // Link throw to cup in throw_cups
-        var throwId = tr.data.find(function(x){ return x.sequence_no === seqBase + ([t1,t2].findIndex(function(t){ return t.outcome==='hit'&&t.cupIndex===pos; })); });
-        if(throwId) await sb.from('throw_cups').insert({throw_id:throwId.id,cup_id:cupId});
-      }
-    }
-  }
-
-  // Write bonus cup removals
-  async function dbWriteBonus(g, bonusIndices){
-    if(!g._cupIds) return;
-    var targetTeam = g._targetTeam;
-    for(var i=0;i<bonusIndices.length;i++){
-      var pos = bonusIndices[i];
-      var cupId = g._cupIds[targetTeam][pos];
-      if(cupId) await sb.from('cups').update({status:'hit'}).eq('id',cupId);
-    }
-  }
-
-  // Write a re-rack (cup position remapping)
-  async function dbWriteRerack(g, team, newCupArray, formationName){
-    if(!g._cupIds) return;
-    // Update all cups for this team to their new status based on remapped array
-    // We rebuild _cupIds to reflect the re-rack: cup at new position X
-    // maps to the DB row that was at the old position
-    // Simplest approach: mark all old standing cups as 'removed_penalty'
-    // and insert new cup rows for the new positions
-    var eid = g._eventId || getEventId();
-    // Log re-rack event
-    await sb.from('re_racks').insert({
-      game_id: g.id,
-      team: team,
-      cups_remaining_at_rerack: newCupArray.filter(Boolean).length,
-      performed_by: state.session.user.id
-    });
-    // Rebuild cup rows: remove old standing cups for this team, insert new ones
-    // and update _cupIds accordingly
-    var oldStanding = Object.entries(g._cupIds[team]).filter(function(e){
-      var pos = parseInt(e[0]);
-      // Check if this cup was standing before rerack
-      return true; // we'll check status from game state
-    });
-    // Mark old cups as removed_penalty (re-racked away)
-    var oldStandingPositions = [];
-    for(var pos=0;pos<g.cupCount;pos++){
-      // If cup was standing before rerack (we can check the pre-rerack state stored in undo)
-      if(g._cupIds[team][pos]){
-        var wasStanding = (team==='A'?g.cupsA:g.cupsB)[pos];
-        if(wasStanding) oldStandingPositions.push(pos);
-      }
-    }
-    // Insert fresh cup rows for new positions
-    var newPositions = [];
-    newCupArray.forEach(function(standing,i){ if(standing) newPositions.push(i); });
-    var newRows = newPositions.map(function(pos){
-      return {game_id:g.id,team:team,rack_position:pos,status:'standing'};
-    });
-    if(newRows.length){
-      var nr = await sb.from('cups').insert(newRows).select('id,team,rack_position');
-      if(!nr.error){
-        nr.data.forEach(function(c){ g._cupIds[c.team][c.rack_position] = c.id; });
-      }
-    }
-  }
-
-  // Update game status in Supabase
-  async function dbUpdateGame(g){
-    var upd = {status:g.status};
-    if(g.winner) upd.winner_team = g.winner;
-    if(g.endedAt) upd.ended_at = new Date(g.endedAt).toISOString();
-    var r = await sb.from('games').update(upd).eq('id',g.id);
-    if(r.error) console.error('[DB] update game:', r.error);
-    else console.log('[DB] game updated:', g.id, g.status);
-  }
-
-  // ── LOAD GAMES ON PAGE LOAD ────────────────────────────────────────────────
-  async function dbLoadGames(){
-    var eid = getEventId();
-    if(!eid) return;
-
-    // Fetch all games for this event
-    var gr = await sb.from('games')
-      .select('*')
-      .eq('event_id', eid)
-      .order('started_at', {ascending:false});
-    if(gr.error){ console.error('[DB] loadGames:', gr.error); return; }
-    if(!gr.data.length) return;
-
-    var gameIds = gr.data.map(function(g){ return g.id; });
-
-    // Fetch cups, throws, game_participants in parallel
-    var [cupsR, throwsR, gpR, rrR] = await Promise.all([
-      sb.from('cups').select('*').in('game_id', gameIds),
-      sb.from('throws').select('*').in('game_id', gameIds).order('sequence_no'),
-      sb.from('game_participants').select('*').in('game_id', gameIds).order('throw_order'),
-      sb.from('re_racks').select('*').in('game_id', gameIds)
-    ]);
-
-    // Rebuild state.games from DB rows
-    var rebuilt = gr.data.map(function(dbg){
-      var gameCups = (cupsR.data||[]).filter(function(c){ return c.game_id===dbg.id; });
-      var gameThrows = (throwsR.data||[]).filter(function(t){ return t.game_id===dbg.id; });
-      var gameGP = (gpR.data||[]).filter(function(p){ return p.game_id===dbg.id; });
-
-      // Build cup arrays
-      var cupsA = new Array(dbg.cup_count).fill(false);
-      var cupsB = new Array(dbg.cup_count).fill(false);
-      var cupIds = {A:{},B:{}};
-      gameCups.forEach(function(c){
-        if(c.status==='standing'){
-          if(c.team==='A') cupsA[c.rack_position]=true;
-          else cupsB[c.rack_position]=true;
-        }
-        cupIds[c.team][c.rack_position]=c.id;
-      });
-
-      // Reconstruct teams from game_participants
-      var teamA=[], teamB=[];
-      gameGP.forEach(function(p){
-        var name = p.user_id
-          ? (state.people.find(function(x){return x.id===p.user_id;})||{name:p.user_id}).name
-          : ('Guest');
-        if(p.team==='A') teamA.push(name);
-        else teamB.push(name);
-      });
-
-      // Reconstruct allThrows
-      var allThrows = gameThrows.map(function(t){
-        var name = t.thrower_user_id
-          ? (state.people.find(function(x){return x.id===t.thrower_user_id;})||{name:'Unknown'}).name
-          : 'Guest';
-        return {
-          thrower: name, team: t.throwing_team,
-          outcome: t.outcome, cupIndex: null, dodge: false, ts: new Date(t.created_at).getTime()
-        };
-      });
-
-      // Build log from throw sequence
-      var log = allThrows.slice().reverse().map(function(t){
-        return {text:'\ud83c\udfd0 '+t.thrower+' \u2014 '+t.outcome, ts:t.ts};
-      });
-
-      var status = dbg.status;
-      var phase = status==='active' ? 'throw1' : status;
-
-      return {
-        id: dbg.id,
-        teamA: teamA, teamB: teamB,
-        teamNameA: 'Team A', teamNameB: 'Team B',
-        cupCount: dbg.cup_count,
-        cupsA: cupsA, cupsB: cupsB,
-        throwingTeam: 'A', phase: phase,
-        pendingPair:{throws:[]}, bonusSelected:[], bonusRequired:0,
-        bonusDodgeCount:0, bonusSameCup:false,
-        allThrows: allThrows, log: log,
-        status: status, winner: dbg.winner_team||null,
-        tempPlayers:[], selectedThrower:null, dodgeArmed:false,
-        throwerIsSuggestion:false,
-        startedAt: new Date(dbg.started_at).getTime(),
-        endedAt: dbg.ended_at ? new Date(dbg.ended_at).getTime() : null,
-        _bothHit:false, _targetTeam:'B', _ballsBack:false, _rerackUsed:{},
-        _cupIds: cupIds, _eventId: eid
-      };
-    });
-
-    // Merge: keep local in-progress game if it exists, add any from DB we don't have
-    rebuilt.forEach(function(dbGame){
-      var existing = state.games.find(function(g){ return g.id===dbGame.id; });
-      if(!existing) state.games.push(dbGame);
-    });
-    state.games.sort(function(a,b){ return b.startedAt-a.startedAt; });
-    console.log('[DB] loaded', rebuilt.length, 'games');
-  }
-
-  // ── REALTIME SUBSCRIPTION ──────────────────────────────────────────────────
-  var _realtimeChannel = null;
-
-  function subscribeRealtime(gameId){
-    if(_realtimeChannel) sb.removeChannel(_realtimeChannel);
-    _realtimeChannel = sb.channel('game:'+gameId)
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'cups',filter:'game_id=eq.'+gameId},
-        function(payload){
-          var g = state.games.find(function(x){return x.id===gameId;});
-          if(!g) return;
-          var c = payload.new;
-          var standing = c.status==='standing';
-          if(c.team==='A') g.cupsA[c.rack_position]=standing;
-          else g.cupsB[c.rack_position]=standing;
-          // Only re-render if we're watching this game and it wasn't us who made the change
-          if(state.current&&state.current.id===gameId) renderGameView();
-        })
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'games',filter:'id=eq.'+gameId},
-        function(payload){
-          var g = state.games.find(function(x){return x.id===gameId;});
-          if(!g) return;
-          var upd = payload.new;
-          if(upd.status!==g.status){
-            g.status=upd.status; g.winner=upd.winner_team||null;
-            if(upd.status==='complete') g.phase='complete';
-            if(state.current&&state.current.id===gameId) renderGameView();
-          }
-        })
-      .subscribe();
-  }
-
   /* ============================================================
      GAME STATE
      ============================================================ */
@@ -981,13 +570,11 @@
       pendingPair:{throws:[]},bonusSelected:[],bonusRequired:0,bonusDodgeCount:0,bonusSameCup:false,
       allThrows:[],log:[],status:"active",winner:null,
       tempPlayers:temp,selectedThrower:null,dodgeArmed:false,throwerIsSuggestion:false,
-      startedAt:Date.now(),endedAt:null,_bothHit:false,_targetTeam:"B",_ballsBack:false,_rerackUsed:{}
+      startedAt:Date.now(),endedAt:null,_bothHit:false,_targetTeam:"B"
     };
     autoSelectThrower(g);
     state.games.unshift(g);
     openGame(g.id);
-    // Async background write — UI does not wait
-    dbCreateGame(g).catch(function(e){console.error("[DB] createGame failed:",e);});
   }
 
   /* ============================================================
@@ -996,7 +583,6 @@
   function openGame(id){
     state.current=state.games.find(function(g){return g.id===id;});
     document.getElementById("fab").style.display="none";
-    subscribeRealtime(id);
     renderGameView();
   }
 
@@ -1047,140 +633,6 @@
     return order[(order.indexOf(last)+1)%order.length];
   }
 
-
-  /* ============================================================
-     RE-RACK FORMATIONS
-     Grid layout (back row = closest to throwers = LAST row):
-     10-cup: row1[0-3] row2[4-6] row3[7-8] back[9]
-      6-cup: row1[0-2] row2[3-4]            back[5]
-     ============================================================ */
-  var RERACK_LAYOUT = {
-    10: [[0,1,2,3],[4,5,6],[7,8],[9]],
-    6:  [[0,1,2],[3,4],[5]]
-  };
-
-  var RERACK_FORMATIONS = {
-    10: [
-      {cups:9, name:"Diamond",        slots:[0,1,2,3,4,5,6,7,8]},
-      {cups:8, name:"Tight pack",     slots:[0,1,2,3,4,5,6,9]},
-      {cups:8, name:"Diamond +1",     slots:[0,1,2,4,5,6,7,9]},
-      {cups:7, name:"Triangle",       slots:[0,1,2,4,5,7,9]},
-      {cups:7, name:"House",          slots:[0,1,4,5,6,7,9]},
-      {cups:6, name:"Triangle",       slots:[0,1,2,4,5,9]},
-      {cups:6, name:"Rev. triangle",  slots:[4,5,6,7,8,9]},
-      {cups:6, name:"Diamond",        slots:[1,4,6,7,8,9]},
-      {cups:5, name:"House",          slots:[0,4,5,8,9]},
-      {cups:5, name:"Triangle",       slots:[0,1,4,5,9]},
-      {cups:5, name:"Diamond",        slots:[1,4,6,8,9]},
-      {cups:5, name:"Line",           slots:[0,4,7,8,9]},
-      {cups:4, name:"Diamond",        slots:[0,5,7,9]},
-      {cups:4, name:"Square",         slots:[4,5,7,8]},
-      {cups:4, name:"T-shape",        slots:[4,5,6,9]},
-      {cups:4, name:"Line",           slots:[0,4,8,9]},
-      {cups:3, name:"Triangle",       slots:[0,5,9]},
-      {cups:3, name:"Line",           slots:[7,8,9]},
-      {cups:3, name:"Rev. triangle",  slots:[4,8,9]},
-      {cups:2, name:"Side by side",   slots:[7,8]},
-      {cups:2, name:"Front-back",     slots:[0,9]},
-      {cups:1, name:"Single",         slots:[9]}
-    ],
-    6: [
-      {cups:5, name:"Near full",      slots:[0,1,2,3,4]},
-      {cups:4, name:"Diamond",        slots:[0,3,4,5]},
-      {cups:4, name:"Square",         slots:[0,1,3,5]},
-      {cups:4, name:"Reverse",        slots:[1,2,3,5]},
-      {cups:3, name:"Triangle",       slots:[0,3,5]},
-      {cups:3, name:"Rev. triangle",  slots:[1,4,5]},
-      {cups:3, name:"Line",           slots:[3,4,5]},
-      {cups:2, name:"Side by side",   slots:[3,4]},
-      {cups:2, name:"Front-back",     slots:[0,5]},
-      {cups:1, name:"Single",         slots:[5]}
-    ]
-  };
-
-  // Build .rows (array of cup arrays per row) from .slots for preview rendering
-  (function(){
-    [10,6].forEach(function(cc){
-      var layout=RERACK_LAYOUT[cc];
-      RERACK_FORMATIONS[cc].forEach(function(f){
-        var set={};
-        f.slots.forEach(function(s){set[s]=true;});
-        f.rows=layout.map(function(row){
-          return row.filter(function(s){return set[s];});
-        }).filter(function(r){return r.length>0;});
-      });
-    });
-  })();
-
-  function rerackAllowed(g){
-    return g.phase==="throw1" && !g._ballsBack;
-  }
-
-  function rerackEligible(g, team){
-    // Only the DEFENDING team (whose cups are targeted) can re-rack — not the throwing team
-    if(team===g.throwingTeam) return false;
-    var cups=team==="A"?g.cupsA:g.cupsB;
-    var standing=cups.filter(Boolean).length;
-    if(standing===g.cupCount||standing===0) return false;
-    return !(g._rerackUsed&&g._rerackUsed[team]);
-  }
-
-  function openRerackSheet(team){
-    var g=state.current;
-    var cups=team==="A"?g.cupsA:g.cupsB;
-    var standing=cups.filter(Boolean).length;
-    var fms=(RERACK_FORMATIONS[g.cupCount]||[]).filter(function(f){return f.cups===standing;});
-    if(!fms.length){toast("No formations for "+standing+" cups");return;}
-
-    var col=team==="A"?"var(--red)":"var(--blue)";
-    var tLabel=teamName(g,team);
-
-    var fHtml=fms.map(function(f,i){
-      var prev=f.rows.map(function(row){
-        return '<div class="fp-row">'+row.map(function(){return '<div class="fp-cup '+team+'"></div>';}).join('')+'</div>';
-      }).join('');
-      return '<div class="formation-card" data-fi="'+i+'"><div class="formation-name">'+esc(f.name)+'</div><div class="formation-preview">'+prev+'</div></div>';
-    }).join('');
-
-    var bd=document.createElement("div"); bd.className="sheet-backdrop";
-    bd.innerHTML='<div class="sheet"><div class="sheet-handle"></div>'
-      +'<h2 style="color:'+col+';">Re-rack \u2014 '+esc(tLabel)+'</h2>'
-      +'<p style="font-size:12.5px;color:var(--text-dim);margin:0 0 14px;line-height:1.5;">'+standing+' cup'+(standing===1?"":"s")+' remaining. Pick a formation.</p>'
-      +'<div class="rerack-formations">'+fHtml+'</div>'
-      +'<button class="btn btn-primary btn-block" id="rr-confirm" disabled>Confirm re-rack</button>'
-      +'<button class="btn btn-ghost btn-block" style="margin-top:8px;" id="rr-cancel">Cancel</button>'
-      +'<p class="rerack-note">One cup must stay in the back row (closest to your edge). All formations enforce this.</p>'
-      +'</div>';
-    document.body.appendChild(bd);
-
-    var selFi=null;
-    bd.querySelectorAll(".formation-card").forEach(function(c){
-      c.addEventListener("click",function(){
-        bd.querySelectorAll(".formation-card").forEach(function(x){x.classList.remove("sel");});
-        c.classList.add("sel");
-        selFi=parseInt(c.getAttribute("data-fi"),10);
-        document.getElementById("rr-confirm").disabled=false;
-      });
-    });
-    document.getElementById("rr-cancel").addEventListener("click",function(){bd.remove();});
-    bd.addEventListener("click",function(e){if(e.target===bd)bd.remove();});
-
-    document.getElementById("rr-confirm").addEventListener("click",function(){
-      if(selFi===null)return;
-      var f=fms[selFi];
-      pushUndo();
-      var newCups=new Array(g.cupCount).fill(false);
-      f.slots.forEach(function(s){newCups[s]=true;});
-      if(team==="A")g.cupsA=newCups; else g.cupsB=newCups;
-      if(!g._rerackUsed)g._rerackUsed={};
-      g._rerackUsed[team]=true;
-      logFeed(g,"\ud83d\udd04 Re-rack \u2014 "+esc(tLabel)+" \u2192 "+f.name);
-      dbWriteRerack(g,team,newCups,f.name).catch(function(e){console.error("[DB] rerack:",e);});
-      bd.remove();
-      renderGameView();
-    });
-  }
-
   function renderGameView(){
     var g=state.current,screen=document.getElementById("screen");
     var tgt=g.throwingTeam==="A"?"B":"A";
@@ -1205,12 +657,6 @@
     if(isActive&&g.phase==="bonus")
       html+='<div class="bonus-banner">'+bonusReasonText(g)+' \u2014 pick exactly '+g.bonusRequired+' cup'+(g.bonusRequired===1?"":"s")+' to remove</div>';
 
-    // Re-rack: shown ABOVE the pyramid for the defending team (tgt),
-    // only at the start of a new turn (throw1, not balls-back).
-    if(isActive&&rerackAllowed(g)&&rerackEligible(g,tgt)){
-      var rrCol=tgt==="A"?"var(--red)":"var(--blue)";
-      html+='<div class="rerack-row"><button class="rerack-btn" data-rrteam="'+tgt+'" style="border-color:'+rrCol+';color:'+rrCol+';">\ud83d\udd04 Re-rack '+esc(teamName(g,tgt))+'</button></div>';
-    }
     html+=pyramidZoneHtml(g,tgt,hasCtrl);
 
     if(hasCtrl){
@@ -1250,9 +696,6 @@
         });
       });
       if(g.phase==="throw1"||g.phase==="throw2"){
-        screen.querySelectorAll(".rerack-btn[data-rrteam]").forEach(function(btn){
-          btn.addEventListener("click",function(){openRerackSheet(btn.getAttribute("data-rrteam"));});
-        });
         screen.querySelectorAll(".chip[data-thrower]").forEach(function(c){
           c.addEventListener("click",function(){g.selectedThrower=c.getAttribute("data-thrower");g.throwerIsSuggestion=false;renderGameView();});
         });
@@ -1318,8 +761,6 @@
     var di=hi.filter(function(v,i){return hi.indexOf(v)===i;});
     di.forEach(function(i){cups[i]=false;});
     if(di.length)logFeed(g,"\ud83c\udfaf "+di.length+" cup"+(di.length>1?"s":"")+" removed");
-    // Async background write of throws + cup updates
-    (function(t1c,t2c,dic){ dbWriteThrowPair(g,t1c,t2c,dic).catch(function(e){console.error("[DB] throwPair:",e);}); })(t1,t2,di.slice());
     if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);return;}
     var dc=(t1.outcome==="hit"&&t1.dodge?1:0)+(t2.outcome==="hit"&&t2.dodge?1:0);
     var sc=g._bothHit&&t1.cupIndex===t2.cupIndex;
@@ -1343,26 +784,17 @@
     if(g.bonusSelected.length!==g.bonusRequired)return;
     pushUndo();
     var cups=g._targetTeam==="A"?g.cupsA:g.cupsB;
-    var bonusIdxCopy=g.bonusSelected.slice();
     g.bonusSelected.forEach(function(i){cups[i]=false;});
-    logFeed(g,"\ud83d\udca5 Bonus: "+bonusIdxCopy.length+" extra cup"+(bonusIdxCopy.length>1?"s":"")+" removed");
+    logFeed(g,"\ud83d\udca5 Bonus: "+g.bonusSelected.length+" extra cup"+(g.bonusSelected.length>1?"s":"")+" removed");
     g.bonusSelected=[];
-    dbWriteBonus(g,bonusIdxCopy).catch(function(e){console.error("[DB] bonus:",e);});
     if(!cups.filter(Boolean).length){completeGame(g,g.throwingTeam);renderGameView();return;}
     finalizePair(g);renderGameView();
   }
 
   function finalizePair(g){
     g.pendingPair={throws:[]};g.phase="throw1";
-    if(g._bothHit){
-      g._ballsBack=true;
-      logFeed(g,"\ud83d\udd01 Balls back \u2014 "+teamName(g,g.throwingTeam)+" throws again");
-    } else {
-      g._ballsBack=false;
-      g._rerackUsed={};
-      g.throwingTeam=g.throwingTeam==="A"?"B":"A";
-      logFeed(g,"\u21aa\ufe0f Turn over \u2014 "+teamName(g,g.throwingTeam)+" throws next");
-    }
+    if(g._bothHit){logFeed(g,"\ud83d\udd01 Balls back \u2014 "+teamName(g,g.throwingTeam)+" throws again");}
+    else{g.throwingTeam=g.throwingTeam==="A"?"B":"A";logFeed(g,"\u21aa\ufe0f Turn over \u2014 "+teamName(g,g.throwingTeam)+" throws next");}
     autoSelectThrower(g);
   }
 
@@ -1370,7 +802,6 @@
     g.status="complete";g.phase="complete";g.winner=winner;g.endedAt=Date.now();
     logFeed(g,"\ud83c\udfc6 "+teamName(g,winner)+" wins!");
     toast("Game logged \ud83c\udfc6");
-    dbUpdateGame(g).catch(function(e){console.error("[DB] completeGame:",e);});
   }
 
   /* ============================================================
@@ -1600,11 +1031,10 @@
         +'<div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;">'
           +'<div class="invite-field"><input id="np-name" maxlength="24" placeholder="Display name" /></div>'
           +'<div class="invite-field"><input id="np-email" type="email" maxlength="60" placeholder="Email address" /></div>'
-          +'<div class="invite-field"><input id="np-pw" type="password" maxlength="64" placeholder="Temporary password (min 8 chars)" /></div>'
           +'<button class="btn btn-primary btn-block" id="invite-btn">Send invite</button>'
           +'<div class="invite-error" id="invite-error"></div>'
         +'</div>'
-        +'<p style="font-size:11.5px;color:var(--text-faint);margin:12px 0 0;line-height:1.5;">The player will be prompted to set a new password on first sign-in.</p>';
+        +'<p style="font-size:11.5px;color:var(--text-faint);margin:12px 0 0;line-height:1.5;">They will receive an email with a secure one-time link to set their own password.</p>';
     } else {
       html+='<p style="font-size:11.5px;color:var(--text-faint);margin:14px 0 0;line-height:1.5;">Only admins can invite new players.</p>';
     }
@@ -1619,18 +1049,15 @@
       document.getElementById("invite-btn").addEventListener("click",async function(){
         var name=document.getElementById("np-name").value.trim();
         var email=document.getElementById("np-email").value.trim();
-        var pw=document.getElementById("np-pw").value;
         hideInvErr();
-        if(!name||!email||!pw){showInvErr("All three fields are required.");return;}
+        if(!name||!email){showInvErr("Name and email are required.");return;}
         if(name.length>24){showInvErr("Display name must be 24 characters or fewer.");return;}
         if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showInvErr("Enter a valid email address.");return;}
-        if(pw.length<8){showInvErr("Temporary password must be at least 8 characters.");return;}
-        if(pw.length>72){showInvErr("Password must be 72 characters or fewer.");return;}
 
-        var btn=this; btn.disabled=true; btn.textContent="Inviting\u2026";
+        var btn=this; btn.disabled=true; btn.textContent="Sending\u2026";
 
         var res=await sb.functions.invoke("admin-invite-user",{
-          body:{email:email,display_name:name,initial_password:pw}
+          body:{email:email,display_name:name}
         });
 
         btn.disabled=false; btn.textContent="Send invite";
@@ -1641,7 +1068,7 @@
         }
 
         await loadPeopleFromSupabase();
-        toast(name+" invited \u2014 they can sign in now.");
+        toast(name+" invited \u2014 invite email sent.");
         renderPeople();
       });
     }
