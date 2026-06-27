@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.047</title>
+<title>RACKED v1.048</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -262,7 +262,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.047</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.048</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -613,14 +613,12 @@
   function getEventId(){ return localStorage.getItem('racked_event_id')||null; }
   function setEventId(id){ localStorage.setItem('racked_event_id', id); }
 
-  // Returns a Supabase client with the user's JWT explicitly set
-  // in the Authorization header, so auth.uid() works correctly in RLS
+  // Use the main sb client directly - it already has the user session
+  // and automatically sends the correct JWT in the Authorization header.
   async function getAuthClient(){
     var { data: { session } } = await sb.auth.getSession();
     if(!session) return null;
-    return supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-      global: { headers: { Authorization: 'Bearer '+session.access_token } }
-    });
+    return sb;
   }
 
   async function ensureEvent(sbc){
