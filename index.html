@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.042</title>
+<title>RACKED v1.044</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -262,7 +262,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.042</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.044</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -304,11 +304,19 @@
 
 
   var SUPABASE_URL  = "https://oxrxctztriezuonduteg.supabase.co";
+  // IMPORTANT: Must use the legacy JWT anon key (starts with eyJ...), NOT the
+  // sb_publishable_ key. The new key format is not a JWT, so PostgREST cannot
+  // decode auth.uid() from it, causing all RLS policies to fail with 403.
+  // Find the legacy key at: Supabase Dashboard > Settings > API > anon (legacy)
   var SUPABASE_ANON = "sb_publishable_Xmiu_3UWoQpbojm4lbQptQ_DptnZGZr";
 
   /* ============================================================
      SUPABASE CLIENT
      ============================================================ */
+  // With the new sb_publishable_ key format, supabase-js must NOT send
+  // the key in Authorization: Bearer (it's not a JWT — the gateway handles it).
+  // Setting Authorization to '' on init prevents that. Supabase-js will
+  // automatically replace it with the user's JWT once they sign in.
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
     auth: {
       persistSession: true,
@@ -316,7 +324,7 @@
       detectSessionInUrl: true
     },
     global: {
-      headers: { 'x-client-info': 'racked/1.041' }
+      headers: { 'Authorization': '', 'x-client-info': 'racked/v1.044' }
     }
   });
 
