@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.038</title>
+<title>RACKED v1.040</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -262,7 +262,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.038</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.040</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -613,10 +613,11 @@
     if(ins.error){ console.error('[DB] ensureEvent:', ins.error); return null; }
     var eid2 = ins.data.id;
     // Add creator as participant
-    await sb.from('event_participants').insert({
+    var epR=await sb.from('event_participants').insert({
       event_id: eid2, user_id: state.session.user.id,
       role: 'creator', invited_by: state.session.user.id
     });
+    if(epR.error) console.error('[DB] event_participants creator insert error:',epR.error);
     setEventId(eid2);
     return eid2;
   }
@@ -641,7 +642,7 @@
       status: 'active',
       started_by: state.session.user.id
     });
-    if(gr.error){ console.error('[DB] insert game:', gr.error); return; }
+    if(gr.error){ console.error('[DB] insert game:', gr.error); toast('Could not save game: '+gr.error.message); return; }
 
     // Insert cup rows for both teams (10 or 6 per team)
     var cupRows = [];
@@ -692,7 +693,8 @@
       var pid=personId(name); var tid=tempUserMap[name]||null;
       gpRows.push({game_id:g.id,team:'B',participant_type:pid?'user':'temp',user_id:pid||null,temp_user_id:tid||null,throw_order:i});
     });
-    await sb.from('game_participants').insert(gpRows);
+    var gpR=await sb.from('game_participants').insert(gpRows);
+    if(gpR.error) console.error('[DB] game_participants error:',gpR.error);
     console.log('[DB] game created:', g.id);
   }
 
@@ -717,7 +719,7 @@
       };
     });
     var tr = await sb.from('throws').insert(throwRows).select('id,sequence_no');
-    if(tr.error){ console.error('[DB] insert throws:', tr.error); return; }
+    if(tr.error){ console.error('[DB] insert throws:', tr.error); toast('Save error - check console'); return; }
 
     // Update hit cups
     var targetTeam = t1.team==='A'?'B':'A';
@@ -954,9 +956,10 @@
     };
     autoSelectThrower(g);
     state.games.unshift(g);
-    openGame(g.id);
-    // Await so _cupIds is populated before any throws are logged
+    // Create DB record first, THEN open game view
+    // This guarantees _cupIds exists before any throw can be logged
     await dbCreateGame(g).catch(function(e){console.error("[DB] createGame failed:",e);});
+    openGame(g.id);
   }
 
   /* ============================================================
