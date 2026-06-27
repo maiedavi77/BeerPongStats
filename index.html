@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.040</title>
+<title>RACKED v1.041</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -262,7 +262,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.040</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.041</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -601,8 +601,15 @@
     var eid = getEventId();
     if(eid){
       // Verify it still exists and we're a participant
-      var r = await sb.from('event_participants').select('event_id').eq('event_id',eid).eq('user_id',state.session.user.id).single();
+      // Use maybeSingle() not single() — single() throws on zero rows
+      var r = await sb.from('event_participants')
+        .select('event_id')
+        .eq('event_id', eid)
+        .eq('user_id', state.session.user.id)
+        .maybeSingle();
       if(r.data) return eid;
+      // Stale event ID — clear it so we create a fresh one
+      localStorage.removeItem('racked_event_id');
     }
     // Create a new event
     var today = new Date().toLocaleDateString('de-DE');
@@ -613,11 +620,11 @@
     if(ins.error){ console.error('[DB] ensureEvent:', ins.error); return null; }
     var eid2 = ins.data.id;
     // Add creator as participant
-    var epR=await sb.from('event_participants').insert({
+    var epR = await sb.from('event_participants').insert({
       event_id: eid2, user_id: state.session.user.id,
       role: 'creator', invited_by: state.session.user.id
     });
-    if(epR.error) console.error('[DB] event_participants creator insert error:',epR.error);
+    if(epR.error){ console.error('[DB] event_participants creator insert error:', epR.error); return null; }
     setEventId(eid2);
     return eid2;
   }
