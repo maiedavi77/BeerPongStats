@@ -576,8 +576,10 @@
       if(!tA.length||!tB.length){toast("Each team needs at least one player");return;}
       var ov=tA.filter(function(n){return tB.some(function(b){return b.toLowerCase()===n.toLowerCase();});});
       if(ov.length){toast(ov[0]+" can't be on both teams");return;}
+      var nameA=document.getElementById("nameA").value.trim()||"Team A";
+      var nameB=document.getElementById("nameB").value.trim()||"Team B";
       bd.remove();
-      startNewGame(tA,tB,document.getElementById("nameA").value.trim()||"Team A",document.getElementById("nameB").value.trim()||"Team B",cupCount,firstTeam);
+      startNewGame(tA,tB,nameA,nameB,cupCount,firstTeam);
     });
   }
 
