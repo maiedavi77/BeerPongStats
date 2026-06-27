@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>Racked</title>
+<title>RACKED v1.038</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -45,9 +45,6 @@
   .login-field input:focus{outline:none;border-color:var(--amber);}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:10px 13px;font-size:13px;color:#F2A093;margin-bottom:14px;display:none;}
   .login-error.visible{display:block;}
-  .pw-field{margin-bottom:12px;}
-  .pw-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
-  .pw-field input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:12px 13px;font-size:14px;}
   .pw-field input:focus{outline:none;border-color:var(--amber);}
 
   /* ===== APP SHELL ===== */
@@ -60,11 +57,6 @@
   .user-badge{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);padding:5px 9px;border-radius:99px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .signout-btn{background:none;border:1px solid var(--line);color:var(--text-faint);border-radius:99px;padding:5px 9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;cursor:pointer;}
   .signout-btn:hover{border-color:var(--red);color:#E8897C;}
-  /* ===== USER DEACTIVATION ===== */
-  .inactive-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;padding:3px 7px;border-radius:99px;background:var(--red-dim);color:#E8897C;border:1px solid rgba(226,64,45,0.35);margin-left:7px;vertical-align:middle;}
-  .toggle-active-btn{flex:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface-2);color:var(--text-faint);}
-  .toggle-active-btn.deactivate{border-color:rgba(226,64,45,0.35);color:#E8897C;}
-  .toggle-active-btn.activate{border-color:rgba(116,182,135,0.4);color:var(--green);}
 
   /* ===== LAYOUT ===== */
   .screen{padding:18px 18px 24px;flex:1;}
@@ -218,6 +210,10 @@
   .people-row .nm{font-weight:600;font-size:14.5px;}
   .people-row .em{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
   .you-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;padding:3px 7px;border-radius:99px;background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple);margin-left:7px;vertical-align:middle;}
+  .inactive-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;padding:3px 7px;border-radius:99px;background:var(--red-dim);color:#E8897C;border:1px solid rgba(226,64,45,0.35);margin-left:7px;vertical-align:middle;}
+  .toggle-active-btn{flex:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface-2);color:var(--text-faint);}
+  .toggle-active-btn.deactivate{border-color:rgba(226,64,45,0.35);color:#E8897C;}
+  .toggle-active-btn.activate{border-color:rgba(116,182,135,0.4);color:var(--green);}
   .invite-error{display:none;margin-top:10px;background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:9px 12px;font-size:13px;color:#F2A093;}
   .invite-error.visible{display:block;}
   .invite-field{margin-bottom:10px;}
@@ -261,26 +257,24 @@
 <!-- Spinner shown while Supabase checks the existing session -->
 <div id="loading-screen"><div class="spinner"></div></div>
 
-<!-- Login screen -->
+<!-- Login / force-change-password screen -->
 <div id="login-screen">
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.038</small>
     </div>
     <div class="login-error" id="login-error"></div>
-    <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
-    </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
-    </div>
-    <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
-    <p style="font-size:11.5px;color:var(--text-faint);text-align:center;margin:14px 0 0;line-height:1.5;">
-      New here? Check your email for an invite link.
-    </p>
+
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
   </div>
 </div>
 
@@ -376,12 +370,9 @@
   }
 
   async function loadPeopleFromSupabase(){
-    var fields=isAdmin()?"id,display_name,email,is_active,is_admin":"id,display_name,is_active,is_admin";
-    var r=await sb.from("profiles").select(fields).order("display_name");
+    var r=await sb.from("profiles").select("id,display_name,email").order("display_name");
     if(r.data){
-      state.people=r.data.map(function(p){
-        return{name:p.display_name,email:p.email||null,id:p.id,is_active:p.is_active!==false,is_admin:!!p.is_admin};
-      });
+      state.people=r.data.map(function(p){return{name:p.display_name,email:p.email,id:p.id};});
     }
   }
 
@@ -430,8 +421,6 @@
      SUPABASE AUTH STATE LISTENER
      Fires once on page load (INITIAL_SESSION) and on any change.
      ============================================================ */
-  // Safety net: if Supabase never fires INITIAL_SESSION (e.g. network error),
-  // show the login screen after 8 seconds instead of spinning forever.
   var _authResolved=false;
   setTimeout(function(){ if(!_authResolved){ hideLoading(); showLoginScreen(); } },8000);
 
@@ -587,10 +576,8 @@
       if(!tA.length||!tB.length){toast("Each team needs at least one player");return;}
       var ov=tA.filter(function(n){return tB.some(function(b){return b.toLowerCase()===n.toLowerCase();});});
       if(ov.length){toast(ov[0]+" can't be on both teams");return;}
-      var nameA=document.getElementById("nameA").value.trim()||"Team A";
-      var nameB=document.getElementById("nameB").value.trim()||"Team B";
       bd.remove();
-      startNewGame(tA,tB,nameA,nameB,cupCount,firstTeam);
+      startNewGame(tA,tB,document.getElementById("nameA").value.trim()||"Team A",document.getElementById("nameB").value.trim()||"Team B",cupCount,firstTeam);
     });
   }
 
@@ -681,15 +668,27 @@
       await sb.from('event_participants').upsert(pInserts, {onConflict:'event_id,user_id',ignoreDuplicates:true});
     }
 
+    // Create event_temp_users rows for guest players (required by throws FK constraint)
+    var tempUserMap={};
+    var tempNames=g.teamA.concat(g.teamB).filter(function(n){return !personId(n);});
+    var uniqueTemp=tempNames.filter(function(n,i){return tempNames.indexOf(n)===i;});
+    if(uniqueTemp.length){
+      var tu=await sb.from('event_temp_users').insert(
+        uniqueTemp.map(function(n){return{event_id:eid,display_name:n,created_by:state.session.user.id};})
+      ).select('id,display_name');
+      if(!tu.error) tu.data.forEach(function(r){tempUserMap[r.display_name]=r.id;});
+      g._tempUserIds=tempUserMap;
+    }
+
     // Insert game_participants (team membership)
-    var gpRows = [];
+    var gpRows=[];
     g.teamA.forEach(function(name,i){
-      var pid=personId(name);
-      gpRows.push({game_id:g.id,team:'A',participant_type:pid?'user':'temp',user_id:pid||null,throw_order:i});
+      var pid=personId(name); var tid=tempUserMap[name]||null;
+      gpRows.push({game_id:g.id,team:'A',participant_type:pid?'user':'temp',user_id:pid||null,temp_user_id:tid||null,throw_order:i});
     });
     g.teamB.forEach(function(name,i){
-      var pid=personId(name);
-      gpRows.push({game_id:g.id,team:'B',participant_type:pid?'user':'temp',user_id:pid||null,throw_order:i});
+      var pid=personId(name); var tid=tempUserMap[name]||null;
+      gpRows.push({game_id:g.id,team:'B',participant_type:pid?'user':'temp',user_id:pid||null,temp_user_id:tid||null,throw_order:i});
     });
     await sb.from('game_participants').insert(gpRows);
     console.log('[DB] game created:', g.id);
@@ -702,12 +701,14 @@
 
     // Insert throw rows
     var throwRows = [t1,t2].map(function(t,i){
-      var pid = personId(t.thrower);
+      var pid=personId(t.thrower);
+      var tid=(g._tempUserIds&&g._tempUserIds[t.thrower])||null;
       return {
         game_id: g.id,
         sequence_no: seqBase + i,
         thrower_type: pid ? 'user' : 'temp',
         thrower_user_id: pid || null,
+        thrower_temp_id: tid || null,
         throwing_team: t.team,
         outcome: t.outcome,
         logged_by: state.session.user.id
@@ -799,14 +800,20 @@
 
   // ── LOAD GAMES ON PAGE LOAD ────────────────────────────────────────────────
   async function dbLoadGames(){
-    var eid = getEventId();
-    if(!eid) return;
+    if(!state.session) return;
 
-    // Fetch all games for this event
-    var gr = await sb.from('games')
+    // Load all events this user participates in (last 30 days)
+    var epR=await sb.from('event_participants').select('event_id').eq('user_id',state.session.user.id);
+    if(epR.error||!epR.data||!epR.data.length) return;
+    var eventIds=epR.data.map(function(r){return r.event_id;});
+    var cutoff=new Date(Date.now()-30*24*60*60*1000).toISOString();
+
+    // Fetch all games across those events
+    var gr=await sb.from('games')
       .select('*')
-      .eq('event_id', eid)
-      .order('started_at', {ascending:false});
+      .in('event_id',eventIds)
+      .gte('started_at',cutoff)
+      .order('started_at',{ascending:false});
     if(gr.error){ console.error('[DB] loadGames:', gr.error); return; }
     if(!gr.data.length) return;
 
@@ -930,7 +937,7 @@
   /* ============================================================
      GAME STATE
      ============================================================ */
-  function startNewGame(teamA,teamB,nameA,nameB,cupCount,firstTeam){
+  async function startNewGame(teamA,teamB,nameA,nameB,cupCount,firstTeam){
     var reg={};
     state.people.forEach(function(p){reg[p.name.toLowerCase()]=true;});
     var temp=teamA.concat(teamB).filter(function(n){return!reg[n.toLowerCase()];});
@@ -946,8 +953,8 @@
     autoSelectThrower(g);
     state.games.unshift(g);
     openGame(g.id);
-    // Async background write — UI does not wait
-    dbCreateGame(g).catch(function(e){console.error("[DB] createGame failed:",e);});
+    // Await so _cupIds is populated before any throws are logged
+    await dbCreateGame(g).catch(function(e){console.error("[DB] createGame failed:",e);});
   }
 
   /* ============================================================
@@ -1587,7 +1594,6 @@
     screen.innerHTML=html;
 
     if(canInvite){
-      // Wire deactivate/activate buttons
       screen.querySelectorAll(".toggle-active-btn").forEach(function(btn){
         btn.addEventListener("click",async function(){
           var uid=btn.getAttribute("data-uid");
