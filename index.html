@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.041</title>
+<title>RACKED v1.042</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <style>
   :root{
     --bg:#17111F; --surface:#231A2E; --surface-2:#2C2138; --surface-3:#372A45;
@@ -262,7 +262,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.041</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.042</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -309,7 +309,16 @@
   /* ============================================================
      SUPABASE CLIENT
      ============================================================ */
-  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    },
+    global: {
+      headers: { 'x-client-info': 'racked/1.041' }
+    }
+  });
 
   /* ============================================================
      STATE
