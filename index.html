@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.050</title>
+<title>RACKED v1.051</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -264,7 +264,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.050</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.051</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -677,14 +677,11 @@
       // Stale event ID — clear it so we create a fresh one
       localStorage.removeItem('racked_event_id');
     }
-    // Create a new event
+    // Create a new event via SECURITY DEFINER RPC (bypasses RLS auth.uid() issue)
     var today = new Date().toLocaleDateString('de-DE');
-    var ins = await sbc.from('events').insert({
-      name: 'Session '+today,
-      created_by: state.session.user.id
-    }).select('id').single();
+    var ins = await sbc.rpc('create_event', { p_name: 'Session '+today });
     if(ins.error){ console.error('[DB] ensureEvent:', ins.error); return null; }
-    var eid2 = ins.data.id;
+    var eid2 = ins.data;
     // Add creator as participant
     var epR = await sbc.from('event_participants').insert({
       event_id: eid2, user_id: state.session.user.id,
