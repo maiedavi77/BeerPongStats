@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.049</title>
+<title>RACKED v1.050</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -45,6 +45,7 @@
   .login-field input:focus{outline:none;border-color:var(--amber);}
   .login-error{background:var(--red-dim);border:1px solid rgba(226,64,45,0.35);border-radius:9px;padding:10px 13px;font-size:13px;color:#F2A093;margin-bottom:14px;display:none;}
   .login-error.visible{display:block;}
+  #turnstile-widget iframe{border-radius:8px;}
   .pw-field input:focus{outline:none;border-color:var(--amber);}
 
   /* ===== APP SHELL ===== */
@@ -250,6 +251,7 @@
   .rerack-note{font-size:11.5px;color:var(--text-faint);text-align:center;margin-top:10px;line-height:1.5;}
 
 </style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 <div id="toast-zone"></div>
@@ -262,7 +264,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.049</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.050</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -274,7 +276,8 @@
         <label>Password</label>
         <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
       </div>
-      <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+      <div id="turnstile-widget" style="margin-bottom:14px;display:flex;justify-content:center;"></div>
+      <button class="btn btn-primary btn-block" id="login-btn" disabled>Sign in</button>
   </div>
 </div>
 
@@ -404,14 +407,53 @@
   /* ============================================================
      LOGIN BUTTON
      ============================================================ */
+  // Turnstile CAPTCHA — renders widget and captures token
+  var _turnstileToken = null;
+  var _turnstileWidgetId = null;
+
+  function initTurnstile(){
+    if(typeof turnstile === 'undefined') return; // script not yet loaded
+    if(_turnstileWidgetId !== null) return;       // already rendered
+    _turnstileWidgetId = turnstile.render('#turnstile-widget', {
+      sitekey: '0x4AAAAAADsPq9_Bj1iuMmGX',
+      theme: 'dark',
+      callback: function(token){
+        _turnstileToken = token;
+        document.getElementById('login-btn').disabled = false;
+      },
+      'expired-callback': function(){
+        _turnstileToken = null;
+        document.getElementById('login-btn').disabled = true;
+      },
+      'error-callback': function(){
+        _turnstileToken = null;
+        document.getElementById('login-btn').disabled = true;
+      }
+    });
+  }
+
+  // Init once Turnstile script loads (it calls turnstile.ready or we poll)
+  if(typeof turnstile !== 'undefined'){
+    initTurnstile();
+  } else {
+    var _tsInterval = setInterval(function(){
+      if(typeof turnstile !== 'undefined'){ clearInterval(_tsInterval); initTurnstile(); }
+    }, 100);
+  }
+
   document.getElementById("login-btn").addEventListener("click",async function(){
     var email=document.getElementById("login-email").value.trim();
     var pw=document.getElementById("login-password").value;
     if(!email||!pw){setAuthError("Email and password are required.");return;}
+    if(!_turnstileToken){setAuthError("Please complete the CAPTCHA.");return;}
     setAuthError("");
     this.disabled=true; this.textContent="Signing in\u2026";
-    var r=await sb.auth.signInWithPassword({email:email,password:pw});
-    this.disabled=false; this.textContent="Sign in";
+    var r=await sb.auth.signInWithPassword({email:email,password:pw,options:{captchaToken:_turnstileToken}});
+    // Reset widget so token can't be reused
+    if(_turnstileWidgetId !== null) turnstile.reset(_turnstileWidgetId);
+    _turnstileToken = null;
+    document.getElementById('login-btn').disabled = true;
+    this.textContent="Sign in";
     if(r.error){setAuthError(r.error.message);return;}
     await onSignedIn(r.data.session);
   });
