@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-<title>RACKED v1.051</title>
+<title>RACKED v1.052</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -264,7 +264,7 @@
   <div class="login-card">
     <div class="login-brand">
       <h1>R<span>A</span>CKED</h1>
-      <small>beer pong tracker &nbsp;·&nbsp; v1.051</small>
+      <small>beer pong tracker &nbsp;·&nbsp; v1.052</small>
     </div>
     <div class="login-error" id="login-error"></div>
 
@@ -682,11 +682,8 @@
     var ins = await sbc.rpc('create_event', { p_name: 'Session '+today });
     if(ins.error){ console.error('[DB] ensureEvent:', ins.error); return null; }
     var eid2 = ins.data;
-    // Add creator as participant
-    var epR = await sbc.from('event_participants').insert({
-      event_id: eid2, user_id: state.session.user.id,
-      role: 'creator', invited_by: state.session.user.id
-    });
+    // Add creator as participant via SECURITY DEFINER RPC
+    var epR = await sbc.rpc('join_event_as_creator', { p_event_id: eid2 });
     if(epR.error){ console.error('[DB] event_participants creator insert error:', epR.error); return null; }
     setEventId(eid2);
     return eid2;
