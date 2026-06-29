@@ -51,7 +51,7 @@ export async function login(email, password, turnstileToken) {
   if (!success) return { error: tsError ?? 'Security check failed — please try again' };
 
   // Step 2: Sign in
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: turnstileToken }, });
   if (error) {
     // Return a user-friendly message — don't expose internal Supabase error codes
     if (error.message.includes('Invalid login credentials')) {
