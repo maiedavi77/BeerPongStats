@@ -147,24 +147,28 @@ export default function render($el) {
       return;
     }
 
+    // Consume the token immediately — Turnstile tokens are single-use.
+    // Clear before the async call so a slow response can never trigger
+    // a second submission with the same already-used token.
+    const tokenToUse = turnstileToken;
+    turnstileToken = null;
     loginBtn.disabled = true;
     loginBtn.textContent = 'Signing in…';
 
-    const { error } = await login(email, password, turnstileToken);
+    const { error } = await login(email, password, tokenToUse);
 
     if (error) {
+      // On failure: showError() resets the widget so user gets a fresh token.
       loginBtn.textContent = 'Sign in';
       showError(error);
       return;
     }
 
-    // On success: onAuthStateChange fires → app.js re-renders → router redirects.
-    // The button stays in "Signing in…" state momentarily while the redirect happens.
-    // Restore it in case redirect is slow.
-    loginBtn.textContent = 'Sign in';
-    loginBtn.disabled = false;
+    // On success: leave button disabled in "Signing in…" state.
+    // onAuthStateChange in supabase.js fires → app.js re-renders → router navigates away.
+    // We deliberately never re-enable the button — the page is leaving.
 
-    // Handle ?next= redirect
+    // Belt-and-suspenders: handle ?next= redirect if auth state is slow
     const { params } = currentRoute();
     if (params.next) {
       navigate(decodeURIComponent(params.next));
