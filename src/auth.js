@@ -45,24 +45,23 @@ export async function verifyTurnstile(token) {
  * @param {string} turnstileToken
  * @returns {Promise<{ error?: string }>}
  */
+// auth.js
 export async function login(email, password, turnstileToken) {
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
     options: {
-      captchaToken: turnstileToken,
+      captchaToken: turnstileToken,  // <-- Must be inside options
     },
   });
 
   if (error) {
+    console.error('[auth] login error:', error);  // <-- ADD THIS FOR DEBUGGING
     if (error.message.includes('Invalid login credentials')) {
       return { error: 'Incorrect email or password' };
     }
     if (error.message.includes('Email not confirmed')) {
       return { error: 'Please check your email and click the confirmation link first' };
-    }
-    if (error.message.includes('captcha') || error.message.includes('timeout-or-duplicate')) {
-      return { error: 'Security verification failed. Please try again.' };
     }
     return { error: error.message };
   }
