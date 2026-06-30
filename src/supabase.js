@@ -62,17 +62,25 @@ function notifyUserListeners() {
  * @param {import('@supabase/supabase-js').User} authUser
  */
 async function hydrateProfile(authUser) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, email, display_name, is_admin, must_change_password')
-    .eq('id', authUser.id)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, display_name, is_admin, must_change_password')
+      .eq('id', authUser.id)
+      .single();
 
-  if (error) {
-    console.error('[auth] failed to load profile:', error.message);
-    currentUser = null;
-  } else {
+    if (error) throw error;
     currentUser = data;
+  } catch (err) {
+    console.error('[auth] failed to load profile, falling back to auth user:', err.message);
+    // Fallback: use auth user data with defaults
+    currentUser = {
+      id: authUser.id,
+      email: authUser.email,
+      display_name: authUser.email.split('@')[0],
+      is_admin: false,
+      must_change_password: false,
+    };
   }
   notifyUserListeners();
 }
