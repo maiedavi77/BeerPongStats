@@ -20,8 +20,6 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   console.log('[login] Form submitted');  // <-- DEBUG
 
-  // ... validation ...
-
   console.log('[login] Showing Turnstile...');  // <-- DEBUG
   container.style.display = 'block';
   if (!turnstileWidgetId) renderTurnstile();
@@ -44,7 +42,6 @@ form.addEventListener('submit', async (e) => {
   const { error } = await login(email, password, token);
   console.log('[login] Login result:', error);  // <-- DEBUG
 
-  // ... rest of the code ...
 });
 
 export default function render($el) {
