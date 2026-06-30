@@ -10,6 +10,10 @@
 
 import { onRouteChange, currentRoute, navigate, matchPath } from './router.js';
 import { currentUser, onUserChange } from './supabase.js';
+
+// src/app.js
+import { supabase } from './supabase.js';
+import { navigate } from './router.js';
 import renderLogin from './ui/screens/login.js';
 
 // Listen for auth state changes
