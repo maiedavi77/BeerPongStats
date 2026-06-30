@@ -16,6 +16,37 @@ import { navigate, currentRoute } from '../../router.js';
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAADsPq9_Bj1iuMmGX';
 
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  console.log('[login] Form submitted');  // <-- DEBUG
+
+  // ... validation ...
+
+  console.log('[login] Showing Turnstile...');  // <-- DEBUG
+  container.style.display = 'block';
+  if (!turnstileWidgetId) renderTurnstile();
+
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Complete security check...';
+
+  console.log('[login] Waiting for token...');  // <-- DEBUG
+  const token = await waitForTurnstileToken();
+  console.log('[login] Token received:', token ? 'YES' : 'NO');  // <-- DEBUG
+
+  if (!token) {
+    console.log('[login] No token, showing error');  // <-- DEBUG
+    // ... error handling ...
+    return;
+  }
+
+  console.log('[login] Calling login()...');  // <-- DEBUG
+  loginBtn.textContent = 'Signing in…';
+  const { error } = await login(email, password, token);
+  console.log('[login] Login result:', error);  // <-- DEBUG
+
+  // ... rest of the code ...
+});
+
 export default function render($el) {
   $el.innerHTML = `
     <div style="
