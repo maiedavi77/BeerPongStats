@@ -8,60 +8,31 @@
 import { supabase } from './supabase.js';
 import { navigate } from './router.js';
 
-// Supabase project URL for Edge Function calls
-const SUPABASE_FUNCTIONS_URL = 'https://oxrxctztriezuonduteg.supabase.co/functions/v1';
-
-// ─── Turnstile verification ──────────────────────────────────────────────────
-
-/**
- * Verify a Cloudflare Turnstile token via our Edge Function.
- * @param {string} token - token from the Turnstile widget callback
- * @returns {Promise<{ success: boolean, error?: string }>}
- */
-export async function verifyTurnstile(token) {
-  try {
-    const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/verify-turnstile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    });
-    const data = await res.json();
-    if (!res.ok) return { success: false, error: data.error ?? 'Verification failed' };
-    return { success: true };
-  } catch (err) {
-    console.error('[auth] turnstile verify error:', err);
-    return { success: false, error: 'Network error — please try again' };
-  }
-}
-
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 /**
- * Sign in with email + password after Turnstile verification.
- * Returns { error } if login fails; on success, onAuthStateChange in supabase.js
- * will update currentUser and the router will re-render.
- * @param {string} email
- * @param {string} password
- * @param {string} turnstileToken
- * @returns {Promise<{ error?: string }>}
+ * Sign in with email + password + Turnstile token.
+ * Supabase Auth verifies the token server-side.
  */
-// auth.js
 export async function login(email, password, turnstileToken) {
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
     options: {
-      captchaToken: turnstileToken,  // <-- Must be inside options
+      captchaToken: turnstileToken,  // <-- Pass token directly to Supabase
     },
   });
 
   if (error) {
-    console.error('[auth] login error:', error);  // <-- ADD THIS FOR DEBUGGING
+    console.error('[auth] login error:', error);
     if (error.message.includes('Invalid login credentials')) {
       return { error: 'Incorrect email or password' };
     }
     if (error.message.includes('Email not confirmed')) {
       return { error: 'Please check your email and click the confirmation link first' };
+    }
+    if (error.message.includes('captcha') || error.message.includes('timeout-or-duplicate')) {
+      return { error: 'Security verification failed. Please try again.' };
     }
     return { error: error.message };
   }
