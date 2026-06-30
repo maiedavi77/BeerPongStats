@@ -12,6 +12,20 @@ import { onRouteChange, currentRoute, navigate, matchPath } from './router.js';
 import { currentUser, onUserChange } from './supabase.js';
 import renderLogin from './ui/screens/login.js';
 
+// Listen for auth state changes
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('[app] Auth state changed:', event);  // <-- DEBUG
+  if (session) {
+    navigate('#/');  // Redirect to home
+  } else {
+    navigate('#/login');
+  }
+});
+
+// Initial render
+const { data: { session } } = await supabase.auth.getSession();
+renderLogin(document.getElementById('screen'));
+
 // ─── Screen registry ────────────────────────────────────────────────────────
 // Each screen module exports a default render(params) function that writes
 // HTML into #screen and attaches event listeners.
@@ -33,20 +47,6 @@ const SCREENS = [
 ];
 
 const $screen = document.getElementById('screen');
-
-// Listen for auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log('[app] Auth state changed:', event);  // <-- DEBUG
-  if (session) {
-    navigate('#/');  // Redirect to home
-  } else {
-    navigate('#/login');
-  }
-});
-
-// Initial render
-const { data: { session } } = await supabase.auth.getSession();
-renderLogin(document.getElementById('screen'));
 
 // Track the current teardown fn so screens can clean up Realtime channels etc.
 let teardown = null;
