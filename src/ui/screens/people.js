@@ -7,7 +7,7 @@
  */
 
 import { supabase, currentUser } from '../../supabase.js';
-import { toast } from '../toast.js';
+import { toast } from '../components/toast.js';
 
 const FUNCTIONS_URL = 'https://oxrxctztriezuonduteg.supabase.co/functions/v1';
 
