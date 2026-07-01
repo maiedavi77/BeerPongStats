@@ -1,16 +1,21 @@
 /**
  * src/game-engine.js
  *
- * Pure beer pong game state machine — rules match the RACKED index.html prototype.
+ * Pure beer pong game state machine — RACKED rules implementation.
  *
  * Turn flow:
  *   throw1 → throw2 → resolve → (bonus?) → finalizePair → throw1 (next team or same if balls-back)
  *
- * Balls back:  BOTH players hit any cups → same team throws again.
- * Bonus cups:  dodge hit = +1 removal, same cup hit by both = +2 removals.
- *   Bonus phase: attacking team taps cups on defending rack to select bonus removals.
+ * BONUS RULES (critical):
+ * - Same cup hit by both balls: +2 bonus removals
+ * - Each dodge hit: +1 bonus removal
+ * - Two balls in same cup WITH one dodge: +3 bonus removals (2+1)
+ * - Two balls in same cup WITH two dodges: +4 bonus removals (2+2)
+ * - Two balls in different cups: balls back (same team throws again)
+ * - Dodge flag must be armed BEFORE tapping the cup
  *
- * Dodge:  isDodge flag on a 'hit' outcome (cup is still removed, bonus earned).
+ * Balls back: BOTH players hit ANY cups → same team throws again.
+ * Bonus phase: attacking team taps cups on defending rack to select bonus removals.
  */
 
 const MAX_UNDO = 20;
@@ -169,10 +174,17 @@ function _resolvePair(g) {
   _checkGameOver(g);
   if (g.status === 'complete') return;
 
-  // Bonus calculation — matches original index.html logic
+  // BONUS CALCULATION - RACKED RULES:
   const bothHit    = t1.outcome === 'hit' && t2.outcome === 'hit';
   const sameCup    = bothHit && t1.cup_id && t1.cup_id === t2.cup_id;
   const dodgeCount = (t1.isDodge ? 1 : 0) + (t2.isDodge ? 1 : 0);
+
+  // Bonus cups = dodge hits + (2 if same cup hit by both)
+  // Examples:
+  // - Both hit same cup, no dodge: 0 + 2 = 2 bonus cups
+  // - Both hit same cup, 1 dodge: 1 + 2 = 3 bonus cups
+  // - Both hit same cup, 2 dodges: 2 + 2 = 4 bonus cups
+  // - Both hit different cups, 1 dodge: 1 + 0 = 1 bonus cup
   const bonusCount = dodgeCount + (sameCup ? 2 : 0);
 
   g._bothHit   = bothHit;   // both hit ANY cups → balls back
