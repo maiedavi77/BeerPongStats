@@ -1,5 +1,5 @@
 /**
- * src/ui/screens/live-game.js
+ * src/ui/screens/live-game.js 
  *
  * Live game scoring screen.
  *
