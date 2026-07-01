@@ -8,7 +8,7 @@
 
 import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
-import { toast } from '../toast.js';
+import { toast } from '../components/toast.js';
 import { renderRack } from '../components/cup-rack.js';
 import { subscribeGame } from '../../realtime.js';
 import {
