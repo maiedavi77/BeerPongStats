@@ -29,7 +29,7 @@ import { renderRack }            from '../components/cup-rack.js';
 import { subscribeGame }         from '../../realtime.js';
 import {
   buildGameState, logThrow, doUndo,
-  currentThrower, standingCups,
+  currentThrower, standingCups, getCurrentPairHitCups,
   selectBonusCup, confirmBonusRemoval,
 } from '../../game-engine.js';
 
@@ -38,9 +38,9 @@ let _state         = null;
 let _unsub         = null;
 let _gameId        = null;
 let _isParticipant = false;
-let _throwing      = false;   // debounce double-tap
-let _dodgeArmed    = false;   // dodge toggle state
-let _rerackUsed    = { A: false, B: false }; // each team's one re-rack per game
+let _throwing      = false;
+let _dodgeArmed    = false;
+let _rerackUsed    = { A: false, B: false };
 
 // ─── Screen entry point ───────────────────────────────────────────────────
 
@@ -52,15 +52,12 @@ export default async function render($el, { id: gameId }) {
 
   $el.innerHTML = `
     <div id="live-wrapper">
-
-      <!-- Back + live badge -->
       <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
         <button id="back-live" class="btn-secondary"
           style="width:auto; padding:0.4rem 0.75rem; font-size:0.8rem;">← Games</button>
         <span style="font-size:0.75rem; color:var(--green); font-weight:500;">● LIVE</span>
       </div>
 
-      <!-- Score bar -->
       <div style="display:flex; justify-content:center; gap:2.5rem; margin-bottom:0.6rem;">
         <div style="text-align:center;">
           <div id="score-a"
@@ -75,7 +72,6 @@ export default async function render($el, { id: gameId }) {
         </div>
       </div>
 
-      <!-- Phase pill -->
       <div style="text-align:center; margin-bottom:0.75rem;">
         <span id="phase-pill"
           style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.5px;
@@ -83,19 +79,16 @@ export default async function render($el, { id: gameId }) {
                  padding:5px 12px; border-radius:99px;"></span>
       </div>
 
-      <!-- Ball-1 recap (shown during throw2) -->
       <div id="ball1-recap" style="display:none; background:var(--surface-2); border:1px solid var(--line);
         border-radius:10px; padding:9px 12px; font-size:12.5px; color:var(--text-dim);
         margin-bottom:0.6rem; align-items:center; gap:8px;">
       </div>
 
-      <!-- Bonus banner (shown during bonus phase) -->
       <div id="bonus-banner" style="display:none; text-align:center; padding:10px 12px;
         border-radius:10px; margin-bottom:0.6rem; background:var(--green-dim);
         border:1px solid rgba(116,182,135,0.4); font-size:13px; color:var(--green); font-weight:600;">
       </div>
 
-      <!-- Target rack -->
       <div class="card" style="margin-bottom:0.75rem; text-align:center; padding:0.75rem 0.75rem 1rem; background:var(--surface); border:1px solid var(--line); border-radius:14px;">
         <div id="target-label"
           style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
@@ -103,17 +96,12 @@ export default async function render($el, { id: gameId }) {
         <div id="rack-target" style="display:inline-block;"></div>
       </div>
 
-      <!-- Spectator note -->
       <div id="spectator-note"
-        style="display:none; text-align:center; color:var(--text-faint);
-               font-size:0.8rem; margin-bottom:0.5rem;">
+        style="display:none; text-align:center; color:var(--text-faint); font-size:0.8rem; margin-bottom:0.5rem;">
         👁️ Spectating — view only
       </div>
 
-      <!-- Controls (throw phase) -->
       <div id="controls-throw" style="display:none;">
-
-        <!-- Re-rack button (throw1 only, once per team) -->
         <div id="rerack-area" style="display:none; margin-bottom:0.5rem;">
           <button id="rerack-btn" class="btn-secondary"
             style="width:100%; font-size:0.85rem; border:1px dashed var(--line); border-radius:11px;">
@@ -121,7 +109,6 @@ export default async function render($el, { id: gameId }) {
           </button>
         </div>
 
-        <!-- Thrower chips -->
         <div style="margin-bottom:0.6rem;">
           <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
                text-transform:uppercase; color:var(--text-faint); text-align:center; margin-bottom:0.4rem;">
@@ -133,7 +120,6 @@ export default async function render($el, { id: gameId }) {
           </div>
         </div>
 
-        <!-- Dodge toggle -->
         <div style="display:flex; justify-content:center; margin-bottom:0.5rem;">
           <button id="dodge-toggle"
             style="display:flex; align-items:center; gap:7px; padding:8px 16px; border-radius:99px;
@@ -143,7 +129,6 @@ export default async function render($el, { id: gameId }) {
           </button>
         </div>
 
-        <!-- Miss / Airball -->
         <div style="display:flex; gap:8px;">
           <button class="miss-btn" data-outcome="airball"
             style="flex:1; background:var(--surface); border:1.5px dashed var(--line);
@@ -154,10 +139,8 @@ export default async function render($el, { id: gameId }) {
                    color:var(--text-dim); border-radius:10px; padding:12px;
                    font-weight:600; font-size:13px; cursor:pointer;">Miss</button>
         </div>
-
       </div>
 
-      <!-- Controls (bonus phase) -->
       <div id="controls-bonus" style="display:none; margin-bottom:0.5rem;">
         <div id="bonus-count"
           style="text-align:center; font-family:'JetBrains Mono',monospace;
@@ -165,7 +148,6 @@ export default async function render($el, { id: gameId }) {
         <button id="bonus-confirm" class="btn-primary" disabled>Confirm removal</button>
       </div>
 
-      <!-- Undo -->
       <div style="display:flex; gap:8px; margin-top:0.5rem; margin-bottom:0.75rem;">
         <button id="undo-btn" class="btn-secondary"
           style="width:auto; padding:0.4rem 0.75rem; font-size:0.8rem;" disabled>↩ Undo</button>
@@ -177,7 +159,6 @@ export default async function render($el, { id: gameId }) {
         </button>
       </div>
 
-      <!-- Throw log -->
       <div class="card" style="background:var(--surface); border:1px solid var(--line); border-radius:14px;">
         <span class="label" style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
                text-transform:uppercase; color:var(--text-faint); padding:0.6rem 0.75rem; display:block;">Event log</span>
@@ -187,7 +168,6 @@ export default async function render($el, { id: gameId }) {
           <p style="color:var(--text-faint);">No throws yet</p>
         </div>
       </div>
-
     </div>`;
 
   document.getElementById('back-live').addEventListener('click', () => navigate('#/'));
@@ -201,7 +181,6 @@ export default async function render($el, { id: gameId }) {
     }
   });
 
-  // ─── Load game ─────────────────────────────────────────────────────────
   const { gameRow, cups, participants, throws, reRacks, error } = await loadGameData(gameId);
   if (error) {
     toast('Failed to load game', 'error');
@@ -212,7 +191,6 @@ export default async function render($el, { id: gameId }) {
   _state = buildGameState(gameRow, cups, participants, throws);
   _isParticipant = participants.some(p => p.user_id === currentUser?.id);
 
-  // Re-rack: team A used theirs if B's cups were re-racked (A attacks B)
   _rerackUsed = {
     A: reRacks.some(r => r.team === 'B'),
     B: reRacks.some(r => r.team === 'A'),
@@ -222,9 +200,10 @@ export default async function render($el, { id: gameId }) {
     document.getElementById('spectator-note').style.display = 'block';
   }
 
-  // ─── Realtime subscription ──────────────────────────────────────────────
   _unsub = subscribeGame(gameId, {
     onCupChange: async () => {
+      // ✅ FIX: Don't overwrite state during active pair
+      if (_state?.phase === 'throw1' || _state?.phase === 'throw2') return;
       const { cups: fresh } = await loadGameData(gameId);
       if (!fresh) return;
       _state.cups.A = fresh.filter(c => c.team === 'A');
@@ -275,7 +254,7 @@ function updateUI() {
     phasePill.textContent = labels[g.phase] ?? '';
   }
 
-  // ── Ball-1 recap (throw2 phase) ─────────────────────────────────────────
+  // ── Ball-1 recap ─────────────────────────────────────────────────────────
   const ball1El = document.getElementById('ball1-recap');
   if (ball1El) {
     if (g.phase === 'throw2' && g.pendingPair.throws.length > 0) {
@@ -322,14 +301,18 @@ function updateUI() {
   // ── Defending rack ──────────────────────────────────────────────────────
   const $target = document.getElementById('rack-target');
   if ($target) {
+    // ✅ FIX: Pass current pair hit cups to keep them visible
     $target.innerHTML = renderRack(
       g.cups[defending],
-      { interactive: _isParticipant, cupCount: g.cupCount }
+      {
+        interactive: _isParticipant,
+        cupCount: g.cupCount,
+        currentPairHitCups: getCurrentPairHitCups(g)
+      }
     );
 
     if (_isParticipant) {
       if (g.phase === 'throw1' || g.phase === 'throw2') {
-        // Cup tap = hit (with optional dodge)
         $target.querySelectorAll('[data-cup-id]').forEach(el => {
           el.addEventListener('click', () => {
             if (_throwing) return;
@@ -337,7 +320,6 @@ function updateUI() {
           });
         });
       } else if (g.phase === 'bonus') {
-        // Cup tap = select / deselect for bonus removal
         $target.querySelectorAll('[data-cup-id]').forEach(el => {
           el.addEventListener('click', () => {
             const ok = selectBonusCup(g, el.dataset.cupId);
@@ -378,13 +360,11 @@ function updateUI() {
         </div>`;
       }).join('');
 
-      // If suggested, show hint
       if (hintEl && teamParts.length > 1) {
         hintEl.textContent = `💡 Suggested: ${teamParts[activeIdx]?.profiles?.display_name ?? '?'} — tap to change`;
         hintEl.style.display = 'block';
       }
 
-      // Wire thrower chip clicks
       chipsEl.querySelectorAll('.thrower-chip').forEach(chip => {
         chip.addEventListener('click', () => {
           _state.currentThrowerIdx[_state.throwingTeam] = Number(chip.dataset.idx);
@@ -430,13 +410,12 @@ function updateUI() {
   renderThrowLog();
 }
 
-// Refresh only the bonus-cup fill colours without re-rendering the whole rack
 function refreshBonusVisuals() {
   if (!_state) return;
   const $target = document.getElementById('rack-target');
   if (!$target) return;
 
-  $target.querySelectorAll('polygon').forEach((poly, index) => {
+  $target.querySelectorAll('polygon').forEach((poly) => {
     const cupEl = poly.closest('[data-cup-id]');
     if (!cupEl) return;
 
@@ -499,16 +478,14 @@ function _participantName(userId) {
   return all.find(p => p.user_id === userId)?.profiles?.display_name ?? '?';
 }
 
-// ─── Static (once-per-render) event handlers ─────────────────────────────
+// ─── Static event handlers ─────────────────────────────────────────────────
 
 function attachStaticHandlers() {
-  // Dodge toggle
   document.getElementById('dodge-toggle')?.addEventListener('click', () => {
     _dodgeArmed = !_dodgeArmed;
     updateUI();
   });
 
-  // Miss / Airball
   document.querySelectorAll('.miss-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (_throwing) return;
@@ -516,7 +493,6 @@ function attachStaticHandlers() {
     });
   });
 
-  // Bonus confirm
   document.getElementById('bonus-confirm')?.addEventListener('click', async () => {
     if (_throwing) return;
     _throwing = true;
@@ -526,7 +502,6 @@ function attachStaticHandlers() {
 
     updateUI();
 
-    // Persist bonus cup removals to DB
     for (const cupId of removedIds) {
       await supabase
         .from('cups')
@@ -543,14 +518,12 @@ function attachStaticHandlers() {
     }
   });
 
-  // Undo
   document.getElementById('undo-btn')?.addEventListener('click', () => {
     _state = doUndo(_state);
     _dodgeArmed = false;
     updateUI();
   });
 
-  // Re-rack
   document.getElementById('rerack-btn')?.addEventListener('click', () => {
     if (!_state) return;
     const defending = _state.throwingTeam === 'A' ? 'B' : 'A';
@@ -568,7 +541,6 @@ async function persistThrow(outcome, cupId) {
   const isDodge   = outcome === 'hit' ? _dodgeArmed : false;
   _dodgeArmed     = false;
 
-  // Track previous state to detect pair resolution
   const prevPhase = _state.phase;
   const prevStatus = _state.status;
 
@@ -589,7 +561,7 @@ async function persistThrow(outcome, cupId) {
     return;
   }
 
-  // ✅ NEW: Persist cup statuses only after pair is resolved
+  // ✅ Persist cup statuses only after pair is resolved
   const pairResolved = prevPhase === 'throw2' && _state.phase !== 'throw2';
   const gameComplete = _state.status === 'complete';
 
@@ -634,7 +606,6 @@ async function writeThrow(outcome, cupId, throwerId) {
     }
 
     // ✅ FIXED: Only write throw_cups junction, NOT cup status
-    // This prevents premature cup removal before both throws are done
     if (outcome === 'hit' && cupId) {
       await supabase
         .from('throw_cups')
@@ -647,11 +618,6 @@ async function writeThrow(outcome, cupId, throwerId) {
   return { error: 'Sequence conflict — please retry' };
 }
 
-/**
- * Persist cup statuses to DB after a pair is resolved.
- * This ensures cups are only marked as hit AFTER both throws are processed,
- * allowing the same cup to be hit by both throws.
- */
 async function persistCupStatuses() {
   if (!_state) return;
 
