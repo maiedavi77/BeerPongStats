@@ -232,17 +232,8 @@ async function createGame({ cupCount, firstTeam, teams, teamAName, teamBName }) 
 
   const gameId = game.id;
 
-  // 2. Bulk insert cups — one row per cup position per team
-  const cupRows = [];
-  for (const team of ['A', 'B']) {
-    for (let pos = 0; pos < cupCount; pos++) {
-      cupRows.push({ game_id: gameId, team, rack_position: pos, status: 'standing' });
-    }
-  }
-  const { error: cupsErr } = await supabase.from('cups').insert(cupRows);
-  if (cupsErr) return { error: cupsErr.message };
-
-  // 3. Bulk insert game_participants with throw_order
+  // 2. Insert game_participants FIRST — cups RLS checks participation,
+  //    so the creator must already be a participant before cups are inserted.
   const participantRows = [];
   for (const team of ['A', 'B']) {
     teams[team].forEach((player, idx) => {
@@ -257,6 +248,16 @@ async function createGame({ cupCount, firstTeam, teams, teamAName, teamBName }) 
   }
   const { error: partErr } = await supabase.from('game_participants').insert(participantRows);
   if (partErr) return { error: partErr.message };
+
+  // 3. Bulk insert cups — participants exist now so RLS will pass
+  const cupRows = [];
+  for (const team of ['A', 'B']) {
+    for (let pos = 0; pos < cupCount; pos++) {
+      cupRows.push({ game_id: gameId, team, rack_position: pos, status: 'standing' });
+    }
+  }
+  const { error: cupsErr } = await supabase.from('cups').insert(cupRows);
+  if (cupsErr) return { error: cupsErr.message };
 
   return { gameId };
 }
