@@ -87,13 +87,22 @@ async function hydrateProfile(authUser) {
 
 // ─── Auth state listener ────────────────────────────────────────────────────
 
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    await hydrateProfile(session.user);
-  } else {
-    currentUser = null;
-    notifyUserListeners();
-  }
+// IMPORTANT: this callback must stay synchronous. onAuthStateChange fires while
+// gotrue-js holds an internal lock; any awaited Supabase call made directly inside
+// it (like the profiles query in hydrateProfile) needs that same lock to attach the
+// session JWT and deadlocks forever. signInWithPassword() then never resolves, and
+// the login button hangs on "Signing in…" even though the token exchange succeeded.
+// Fix: defer the async work with setTimeout(0) so it runs after the lock is released.
+// https://supabase.com/docs/reference/javascript/auth-onauthstatechange
+supabase.auth.onAuthStateChange((event, session) => {
+  setTimeout(() => {
+    if (session?.user) {
+      hydrateProfile(session.user);
+    } else {
+      currentUser = null;
+      notifyUserListeners();
+    }
+  }, 0);
 });
 
 // Hydrate immediately if already logged in (e.g. page reload)
