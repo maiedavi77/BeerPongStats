@@ -7,7 +7,7 @@
 
 import { supabase } from '../../supabase.js';
 import { navigate } from '../../router.js';
-import { toast } from '../toast.js';
+import { toast } from '../components/toast.js';
 
 const SORT_OPTIONS = [
   { key: 'winPct',   label: 'Win %'    },
