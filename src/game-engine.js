@@ -1,5 +1,5 @@
 /**
- * src/game-engine.js 
+ * src/game-engine.js
  *
  * Pure beer pong game state machine — RACKED rules implementation.
  *
@@ -10,12 +10,7 @@
  * - Same cup hit by both balls: +2 bonus removals
  * - Each dodge hit: +1 bonus removal
  * - Two balls in same cup WITH one dodge: +3 bonus removals (2+1)
- * - Two balls in same cup WITH two dodges: +4 bonus removals (2+2)
  * - Two balls in different cups: balls back (same team throws again)
- * - Dodge flag must be armed BEFORE tapping the cup
- *
- * Balls back: BOTH players hit ANY cups → same team throws again.
- * Bonus phase: attacking team taps cups on defending rack to select bonus removals.
  */
 
 const MAX_UNDO = 20;
@@ -38,7 +33,7 @@ export function buildGameState(gameRow, cups, participants, throws = []) {
     cups:         { A: cupsA, B: cupsB },
     participants: { A: partA, B: partB },
     currentThrowerIdx: { A: 0, B: 0 },
-    pendingPair:  { throws: [] },
+    pendingPair:  { throws: [], hitCupIds: [] },  // ✅ ADDED: Track hits in current pair
     allThrows:    throws,
     undoStack:    [],
     winner:       gameRow.winner_team ?? null,
@@ -100,11 +95,18 @@ export function logThrow(g, outcome, cupId, throwerId, isDodge = false) {
   g.pendingPair.throws.push(throwRecord);
   g.allThrows.push(throwRecord);
 
+  // ✅ TRACK HITS IN CURRENT PAIR (for UI to keep cups visible)
+  if (outcome === 'hit' && cupId) {
+    g.pendingPair.hitCupIds.push(cupId);
+  }
+
   if (g.phase === 'throw1') {
     g.phase = 'throw2';
     _advanceThrower(g, g.throwingTeam);
   } else {
     _resolvePair(g);
+    // ✅ CLEAR TRACKING AFTER PAIR IS RESOLVED
+    g.pendingPair.hitCupIds = [];
   }
 
   return g;
@@ -180,11 +182,6 @@ function _resolvePair(g) {
   const dodgeCount = (t1.isDodge ? 1 : 0) + (t2.isDodge ? 1 : 0);
 
   // Bonus cups = dodge hits + (2 if same cup hit by both)
-  // Examples:
-  // - Both hit same cup, no dodge: 0 + 2 = 2 bonus cups
-  // - Both hit same cup, 1 dodge: 1 + 2 = 3 bonus cups
-  // - Both hit same cup, 2 dodges: 2 + 2 = 4 bonus cups
-  // - Both hit different cups, 1 dodge: 1 + 0 = 1 bonus cup
   const bonusCount = dodgeCount + (sameCup ? 2 : 0);
 
   g._bothHit   = bothHit;   // both hit ANY cups → balls back
@@ -203,7 +200,7 @@ function _resolvePair(g) {
 }
 
 function _finalizePair(g) {
-  g.pendingPair   = { throws: [] };
+  g.pendingPair   = { throws: [], hitCupIds: [] };
   g.bonusRequired = 0;
   g.bonusSelected = [];
 
@@ -249,4 +246,9 @@ export function currentThrower(g, team = g.throwingTeam) {
 
 export function standingCups(g, team) {
   return g.cups[team].filter(c => c.status === 'standing').length;
+}
+
+// ✅ NEW: Get cups hit in current pair (for UI to keep them visible)
+export function getCurrentPairHitCups(g) {
+  return g.pendingPair?.hitCupIds || [];
 }
