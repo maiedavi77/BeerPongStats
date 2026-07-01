@@ -1,14 +1,17 @@
 /**
  * src/game-engine.js
  *
- * Pure beer pong game state machine.
- * NO Supabase calls, NO DOM access.
+ * Pure beer pong game state machine — rules match the RACKED index.html prototype.
+ *
+ * Turn flow:
+ *   throw1 → throw2 → resolve → (bonus?) → finalizePair → throw1 (next team or same if balls-back)
+ *
+ * Balls back:  BOTH players hit any cups → same team throws again.
+ * Bonus cups:  dodge hit = +1 removal, same cup hit by both = +2 removals.
+ *   Bonus phase: attacking team taps cups on defending rack to select bonus removals.
+ *
+ * Dodge:  isDodge flag on a 'hit' outcome (cup is still removed, bonus earned).
  */
-
-const RERACK_TRIGGERS = {
-  10: new Set([6, 5, 4, 3, 2, 1]),
-  6:  new Set([5, 4, 3, 2, 1]),
-};
 
 const MAX_UNDO = 20;
 
@@ -22,23 +25,25 @@ export function buildGameState(gameRow, cups, participants, throws = []) {
   const partB = participants.filter(p => p.team === 'B').sort((a, b) => a.throw_order - b.throw_order);
 
   return {
-    id: gameRow.id,
+    id:           gameRow.id,
     cupCount,
-    status: gameRow.status ?? 'active',
+    status:       gameRow.status       ?? 'active',
     throwingTeam: gameRow.throwing_team ?? 'A',
-    phase: 'throw1',
-    bonusThrowsLeft: 0,
-    cups: { A: cupsA, B: cupsB },
+    phase:        'throw1',  // 'throw1' | 'throw2' | 'bonus'
+    cups:         { A: cupsA, B: cupsB },
     participants: { A: partA, B: partB },
     currentThrowerIdx: { A: 0, B: 0 },
-    // pendingPair tracks the two throws of a normal turn
-    pendingPair: { throws: [], throwers: [] },
-    allThrows: throws,
-    undoStack: [],
-    winner: gameRow.winner_team ?? null,
-    ballsBack: false,
-    // lastDodgeBy: tracks consecutive dodges by the same player within the SAME team turn
-    lastDodgeBy: null,
+    pendingPair:  { throws: [] },
+    allThrows:    throws,
+    undoStack:    [],
+    winner:       gameRow.winner_team ?? null,
+    // Bonus-phase fields (set by _resolvePair)
+    _targetTeam:   gameRow.throwing_team === 'A' ? 'B' : 'A',
+    _bothHit:      false,
+    bonusRequired: 0,
+    bonusSelected: [],  // cup IDs selected for bonus removal
+    dodgeCount:    0,
+    sameCupHit:    false,
   };
 }
 
@@ -61,65 +66,145 @@ export function doUndo(g) {
 // ─── logThrow ─────────────────────────────────────────────────────────────
 
 /**
- * Log a throw and advance game phase.
- * @param {GameState} g
- * @param {'hit'|'miss'|'airball'|'dodge'} outcome
- * @param {string|null} cupId  - required when outcome === 'hit'
- * @param {string} throwerId  - participant id
- * @returns {GameState}
+ * Record a throw and advance the game phase.
+ *
+ * @param {object}  g          - game state (mutated in place)
+ * @param {'hit'|'miss'|'airball'} outcome
+ * @param {string|null} cupId  - DB cup id; required when outcome === 'hit'
+ * @param {string}  throwerId  - participant user_id
+ * @param {boolean} [isDodge]  - true when outcome==='hit' and dodge was armed
  */
-export function logThrow(g, outcome, cupId, throwerId) {
+export function logThrow(g, outcome, cupId, throwerId, isDodge = false) {
   if (g.status !== 'active') throw new Error('Game is not active');
+  if (g.phase !== 'throw1' && g.phase !== 'throw2') throw new Error('Not in throw phase');
 
   snapshot(g);
 
   const throwRecord = {
-    id: `throw-${g.allThrows.length + 1}`,
-    game_id: g.id,
-    sequence_no: g.allThrows.length + 1,
+    id:            `throw-${g.allThrows.length + 1}`,
+    game_id:       g.id,
+    sequence_no:   g.allThrows.length + 1,
     throwing_team: g.throwingTeam,
     thrower_user_id: throwerId,
     outcome,
-    cup_id: cupId ?? null,
+    cup_id:   cupId ?? null,
+    isDodge:  outcome === 'hit' ? isDodge : false,
     created_at: new Date().toISOString(),
   };
 
   g.pendingPair.throws.push(throwRecord);
-  g.pendingPair.throwers.push(throwerId);
   g.allThrows.push(throwRecord);
 
-  if (outcome === 'hit') {
-    _markCupHit(g, cupId);
-  } else if (outcome === 'dodge') {
-    _applyDodgePenalty(g, throwerId);
-  }
-
-  // Phase transitions
   if (g.phase === 'throw1') {
     g.phase = 'throw2';
     _advanceThrower(g, g.throwingTeam);
-
-  } else if (g.phase === 'throw2') {
+  } else {
     _resolvePair(g);
-
-  } else if (g.phase === 'bonus') {
-    // Each bonus throw is individual
-    g.bonusThrowsLeft--;
-    if (outcome === 'hit') {
-      _checkGameOver(g);
-    }
-    if (g.status === 'complete') return g;
-    if (g.bonusThrowsLeft <= 0) {
-      _swapTeams(g);
-      _resetPair(g);
-      g.phase = 'throw1';
-    }
   }
 
   return g;
 }
 
+// ─── Bonus phase ──────────────────────────────────────────────────────────
+
+/**
+ * Toggle a defending cup into / out of the bonus-removal selection.
+ * Returns false (and does nothing) if selection is already full.
+ */
+export function selectBonusCup(g, cupId) {
+  const idx = g.bonusSelected.indexOf(cupId);
+  if (idx >= 0) {
+    g.bonusSelected.splice(idx, 1);
+    return true;
+  }
+  if (g.bonusSelected.length >= g.bonusRequired) return false;
+  g.bonusSelected.push(cupId);
+  return true;
+}
+
+/**
+ * Confirm bonus cup removal.
+ * Marks selected cups as hit in state, then finalizes the pair.
+ * Returns the removed cup IDs on success, or null if selection not complete.
+ */
+export function confirmBonusRemoval(g) {
+  if (g.bonusSelected.length !== g.bonusRequired) return null;
+  snapshot(g);
+
+  const removedIds = [...g.bonusSelected];
+  for (const cupId of removedIds) {
+    const cup = g.cups[g._targetTeam].find(c => c.id === cupId);
+    if (cup) cup.status = 'hit';
+  }
+  g.bonusSelected = [];
+  g.bonusRequired = 0;
+
+  _checkGameOver(g);
+  if (g.status === 'complete') return removedIds;
+
+  _finalizePair(g);
+  return removedIds;
+}
+
 // ─── Internal helpers ─────────────────────────────────────────────────────
+
+function _resolvePair(g) {
+  const t1  = g.pendingPair.throws[0];
+  const t2  = g.pendingPair.throws[1];
+  const tgt = g.throwingTeam === 'A' ? 'B' : 'A';
+  g._targetTeam = tgt;
+
+  // Collect unique cup IDs that were hit (deduplicate same-cup hits)
+  const hitIds = [];
+  if (t1.outcome === 'hit' && t1.cup_id) hitIds.push(t1.cup_id);
+  if (t2.outcome === 'hit' && t2.cup_id) hitIds.push(t2.cup_id);
+  const uniqueHitIds = [...new Set(hitIds)];
+
+  // Remove hit cups from in-memory state
+  for (const cupId of uniqueHitIds) {
+    _markCupHit(g, cupId);
+  }
+
+  // Game over check (before bonus)
+  _checkGameOver(g);
+  if (g.status === 'complete') return;
+
+  // Bonus calculation — matches original index.html logic
+  const bothHit    = t1.outcome === 'hit' && t2.outcome === 'hit';
+  const sameCup    = bothHit && t1.cup_id && t1.cup_id === t2.cup_id;
+  const dodgeCount = (t1.isDodge ? 1 : 0) + (t2.isDodge ? 1 : 0);
+  const bonusCount = dodgeCount + (sameCup ? 2 : 0);
+
+  g._bothHit   = bothHit;   // both hit ANY cups → balls back
+  g.dodgeCount = dodgeCount;
+  g.sameCupHit = sameCup;
+
+  const remaining = standingCups(g, tgt);
+
+  if (bonusCount > 0 && remaining > 0) {
+    g.phase        = 'bonus';
+    g.bonusRequired = Math.min(bonusCount, remaining);
+    g.bonusSelected = [];
+  } else {
+    _finalizePair(g);
+  }
+}
+
+function _finalizePair(g) {
+  g.pendingPair   = { throws: [] };
+  g.bonusRequired = 0;
+  g.bonusSelected = [];
+
+  if (g._bothHit) {
+    // Balls back — same team throws again, reset to first thrower
+    g.phase = 'throw1';
+    g.currentThrowerIdx[g.throwingTeam] = 0;
+  } else {
+    g.throwingTeam = g.throwingTeam === 'A' ? 'B' : 'A';
+    g.phase        = 'throw1';
+    g.currentThrowerIdx[g.throwingTeam] = 0;
+  }
+}
 
 function _markCupHit(g, cupId) {
   for (const team of ['A', 'B']) {
@@ -128,88 +213,18 @@ function _markCupHit(g, cupId) {
   }
 }
 
-function _applyDodgePenalty(g, throwerId) {
-  // +2 cups if same player dodges twice in a row (consecutive within a turn)
-  const penalty = (g.lastDodgeBy === throwerId) ? 2 : 1;
-  g.lastDodgeBy = throwerId;
-
-  // Per spec §9.2: dodge adds cups to the DEFENDING team's rack
-  const defendingTeam = g.throwingTeam === 'A' ? 'B' : 'A';
-  const maxPos = Math.max(...g.cups[defendingTeam].map(c => c.rack_position), -1);
-
-  for (let i = 0; i < penalty; i++) {
-    g.cups[defendingTeam].push({
-      id: `penalty-${Date.now()}-${i}`,
-      game_id: g.id,
-      team: defendingTeam,
-      rack_position: maxPos + 1 + i,
-      status: 'standing',
-      _isPenalty: true,
-    });
-  }
-}
-
-function _resolvePair(g) {
-  const hits = g.pendingPair.throws.filter(t => t.outcome === 'hit');
-  const hitCount = hits.length;
-
-  // Balls back: exactly 2 hits and both hit the SAME cup
-  if (hitCount === 2) {
-    const [h1, h2] = hits;
-    if (h1.cup_id && h1.cup_id === h2.cup_id) {
-      // Balls back — same team throws again
-      g.ballsBack = true;
-      _resetPair(g);
-      // Reset thrower index back to first thrower
-      g.phase = 'throw1';
-      return;
-    }
-  }
-
-  // Both players hit (2 different cups) → bonus throws
-  if (hitCount === 2) {
-    const defendingTeam = g.throwingTeam === 'A' ? 'B' : 'A';
-    const remaining = standingCups(g, defendingTeam);
-    if (remaining > 0) {
-      g.phase = 'bonus';
-      g.bonusThrowsLeft = remaining;
-      _resetPair(g);
-      _checkGameOver(g); // edge case: cups might already be 0
-      return;
-    }
-  }
-
-  // Normal resolution: check game over then swap
-  _checkGameOver(g);
-  if (g.status === 'complete') return;
-
-  _swapTeams(g);
-  _resetPair(g);
-  g.phase = 'throw1';
-}
-
 function _checkGameOver(g) {
-  const defendingTeam = g.throwingTeam === 'A' ? 'B' : 'A';
-  if (standingCups(g, defendingTeam) === 0) {
+  const tgt = g.throwingTeam === 'A' ? 'B' : 'A';
+  if (standingCups(g, tgt) === 0) {
     g.status = 'complete';
     g.winner = g.throwingTeam;
   }
 }
 
-function _swapTeams(g) {
-  g.throwingTeam = g.throwingTeam === 'A' ? 'B' : 'A';
-  g.lastDodgeBy = null;
-}
-
 function _advanceThrower(g, team) {
   const parts = g.participants[team];
-  if (parts.length <= 1) return;
+  if (!parts || parts.length <= 1) return;
   g.currentThrowerIdx[team] = (g.currentThrowerIdx[team] + 1) % parts.length;
-}
-
-function _resetPair(g) {
-  g.pendingPair = { throws: [], throwers: [] };
-  g.ballsBack = false;
 }
 
 // ─── Public helpers ───────────────────────────────────────────────────────
@@ -222,15 +237,4 @@ export function currentThrower(g, team = g.throwingTeam) {
 
 export function standingCups(g, team) {
   return g.cups[team].filter(c => c.status === 'standing').length;
-}
-
-export function shouldTriggerRerack(g, team) {
-  const triggers = RERACK_TRIGGERS[g.cupCount] ?? new Set();
-  return triggers.has(standingCups(g, team));
-}
-
-export function applyRerack(g, team, newPositions) {
-  snapshot(g);
-  const standing = g.cups[team].filter(c => c.status === 'standing');
-  standing.forEach((cup, i) => { cup.rack_position = newPositions[i] ?? i; });
 }
