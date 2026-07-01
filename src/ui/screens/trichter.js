@@ -7,7 +7,7 @@
  */
 
 import { supabase, currentUser } from '../../supabase.js';
-import { toast } from '../toast.js';
+import { toast } from '../components/toast.js';
 
 // Timer state (module-level so it survives re-renders within the same session)
 let _timerInterval = null;
