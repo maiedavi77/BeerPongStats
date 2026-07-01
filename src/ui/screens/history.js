@@ -7,7 +7,7 @@
 
 import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
-import { toast } from '../toast.js';
+import { toast } from '../components/toast.js';
 
 export default async function render($el) {
   $el.innerHTML = `
