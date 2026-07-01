@@ -1,5 +1,5 @@
 /**
- * src/game-engine.js
+ * src/game-engine.js 
  *
  * Pure beer pong game state machine — RACKED rules implementation.
  *
