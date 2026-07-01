@@ -150,7 +150,8 @@ async function loadProfile(userId) {
   let throws = [], cups = [];
   if (gameIds.length > 0) {
     const [throwsRes, cupsRes] = await Promise.all([
-      supabase.from('throws').select('game_id, thrower_user_id, outcome, cup_id').in('game_id', gameIds),
+      // throw_cups is the join table linking throws → cups; 'cup_id' is NOT on throws directly.
+      supabase.from('throws').select('game_id, thrower_user_id, outcome, throw_cups(cup_id)').in('game_id', gameIds),
       supabase.from('cups').select('id, game_id, rack_position').in('game_id', gameIds),
     ]);
     throws = throwsRes.data ?? [];
