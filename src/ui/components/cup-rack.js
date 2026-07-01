@@ -1,153 +1,207 @@
 /**
  * src/ui/components/cup-rack.js
  *
- * SVG cup rack renderer for 6-cup and 10-cup layouts.
- *
- * Coordinate system matches the RACKED reference grid:
- *   Tip row (row 0) = furthest from the thrower → WIDEST row
- *   Back row (last) = closest to the thrower    → narrowest row
- *
- * 10-cup layout (4-3-2-1):
- *   Row 0 (tip):  pos 0,1,2,3  — 4 cups
- *   Row 1:        pos 4,5,6    — 3 cups
- *   Row 2:        pos 7,8      — 2 cups
- *   Row 3 (back): pos 9        — 1 cup
- *
- * 6-cup layout (3-2-1):
- *   Row 0 (tip):  pos 0,1,2   — 3 cups
- *   Row 1:        pos 3,4     — 2 cups
- *   Row 2 (back): pos 5       — 1 cup
+ * Renders beer pong cup racks with proper SVG design matching V2_rerack_reference.html.
+ * Supports 6-cup and 10-cup layouts with trapezoidal cups and team gradients.
  */
 
-const CUP_RADIUS  = 20;
-const CUP_SPACING = 48;
+// ─── Constants ─────────────────────────────────────────────────────────────
+const CUP_W   = 18;    // Cup width
+const CUP_H   = 14;    // Cup height
+const CUP_BOT = 10;    // Cup bottom width (creates trapezoid)
+const CELL    = 26;    // Row pitch (vertical spacing)
+const PAD     = 8;     // Padding
 
-// Tip-to-back layouts: widest row first.
-const LAYOUTS = {
-  10: [
-    [{ pos: 0 }, { pos: 1 }, { pos: 2 }, { pos: 3 }], // Row 0 (tip) — 4 cups
-    [{ pos: 4 }, { pos: 5 }, { pos: 6 }],              // Row 1 — 3 cups
-    [{ pos: 7 }, { pos: 8 }],                          // Row 2 — 2 cups
-    [{ pos: 9 }],                                      // Row 3 (back) — 1 cup
-  ],
-  6: [
-    [{ pos: 0 }, { pos: 1 }, { pos: 2 }], // Row 0 (tip) — 3 cups
-    [{ pos: 3 }, { pos: 4 }],             // Row 1 — 2 cups
-    [{ pos: 5 }],                         // Row 2 (back) — 1 cup
-  ],
+// Grid coordinate systems (matching V2_rerack_reference.html)
+const GRID10 = {
+  0:{x:0,   y:0}, 1:{x:1,   y:0}, 2:{x:2,   y:0}, 3:{x:3,   y:0},    // Row 0 (tip)
+  4:{x:0.5, y:1}, 5:{x:1.5, y:1}, 6:{x:2.5, y:1},                    // Row 1
+  7:{x:1,   y:2}, 8:{x:2,   y:2},                                  // Row 2
+  9:{x:1.5, y:3},                                                   // Row 3 (back)
 };
 
+const GRID6 = {
+  0:{x:0,   y:0}, 1:{x:1,   y:0}, 2:{x:2,   y:0},    // Row 0 (tip)
+  3:{x:0.5, y:1}, 4:{x:1.5, y:1},                    // Row 1
+  5:{x:1,   y:2},                                     // Row 2 (back)
+};
+
+const ALL_SLOTS_10 = [0,1,2,3,4,5,6,7,8,9];
+const ALL_SLOTS_6  = [0,1,2,3,4,5];
+
+let _uid = 0;
+
 /**
- * Build pixel coordinates for every cup position in a layout.
- * Rows are centered relative to the widest (tip) row.
- *
- * @param {number} cupCount - 6 or 10
- * @returns {Map<number, {x:number, y:number}>}
+ * Convert grid Y coordinate to pixel Y position.
+ * Half-positions (0.5, 1.5, 2.5) are centered between integer rows.
  */
-function buildPositionMap(cupCount) {
-  const rows    = LAYOUTS[cupCount] ?? LAYOUTS[10];
-  // Use the widest row (tip row) for total width — NOT the last row.
-  const maxCols = Math.max(...rows.map(r => r.length));
-  const totalW  = maxCols * CUP_SPACING;
-  const posMap  = new Map();
-
-  rows.forEach((row, rowIdx) => {
-    const rowW   = row.length * CUP_SPACING;
-    const offsetX = (totalW - rowW) / 2;
-    row.forEach((cup, colIdx) => {
-      posMap.set(cup.pos, {
-        x: offsetX + colIdx * CUP_SPACING + CUP_SPACING / 2,
-        y: rowIdx  * CUP_SPACING + CUP_SPACING / 2,
-      });
-    });
-  });
-
-  return posMap;
+function yToPx(gy) {
+  return Math.ceil(gy) * CELL;
 }
 
 /**
- * Render a cup rack as an inline SVG string.
+ * Render a single cup as SVG polygon.
+ * @param {number} cx - Center X in pixels
+ * @param {number} cy - Center Y in pixels
+ * @param {boolean} isActive - Whether cup is standing (not hit)
+ * @param {boolean} isRed - Team A (red) or Team B (blue)
+ * @param {boolean} isLineCup - Whether this is a line cup (half-position)
+ * @returns {string} SVG polygon element
+ */
+function renderCup(cx, cy, isActive, isRed, isLineCup = false) {
+  const hw = CUP_W / 2;
+  const hb = CUP_BOT / 2;
+  const t = cy - CUP_H / 2;
+  const b = cy + CUP_H / 2;
+  const pts = `${cx-hw},${t} ${cx+hw},${t} ${cx+hb},${b} ${cx-hb},${b}`;
+
+  const fill = isActive
+    ? (isRed ? 'url(#grad-red)' : 'url(#grad-blue)')
+    : (isRed ? 'rgba(226,64,45,0.09)' : 'rgba(61,134,198,0.09)');
+
+  const stroke = isActive
+    ? (isRed ? '#C43020' : '#2A6A9E')
+    : (isRed ? 'rgba(226,64,45,0.16)' : 'rgba(61,134,198,0.16)');
+
+  return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+}
+
+/**
+ * Generate unique gradient IDs for this SVG.
+ */
+function getGradientIds() {
+  const redId = `grad-red-${_uid}`;
+  const blueId = `grad-blue-${_uid++}`;
+  return { redId, blueId };
+}
+
+/**
+ * Render a complete cup rack as SVG.
  *
- * @param {object[]} cups       - cup rows from game state (all cups incl. hit ones)
- * @param {object}   [options]
- * @param {boolean}  [options.interactive]  - add data-cup-id attrs for tap-to-hit
- * @param {number}   [options.cupCount]     - override layout selection (6|10)
- * @param {boolean}  [options.showGhosts]   - show empty positions as faint outlines
- * @param {Map}      [options.hitCounts]    - Map<rack_position, count> for heatmap
+ * @param {Array} cups - Array of cup objects with: id, team, rack_position, status
+ * @param {Object} options - Configuration options
+ * @param {number} options.cupCount - 6 or 10 (game type)
+ * @param {boolean} options.interactive - Add data attributes for interactivity
+ * @param {boolean} options.showGhosts - Show empty slots as ghost cups
+ * @param {boolean} options.showLineCups - Show line cup positions (for re-rack)
+ * @param {Array} options.lineCups - Array of line cup positions {x, y}
  * @returns {string} SVG markup
  */
 export function renderRack(cups, options = {}) {
-  const cupCount  = options.cupCount ?? (cups.length > 6 ? 10 : 6);
-  const rows      = LAYOUTS[cupCount] ?? LAYOUTS[10];
-  const maxCols   = Math.max(...rows.map(r => r.length));
-  const svgWidth  = maxCols * CUP_SPACING + 8;
-  const svgHeight = rows.length * CUP_SPACING + 8;
-  const posMap    = buildPositionMap(cupCount);
+  const {
+    cupCount = 10,
+    interactive = false,
+    showGhosts = false,
+    showLineCups = false,
+    lineCups = [],
+  } = options;
 
-  // Build lookup: rack_position → cup object
-  const cupByPos = new Map(cups.map(c => [c.rack_position, c]));
+  const grid = cupCount === 6 ? GRID6 : GRID10;
+  const allSlots = cupCount === 6 ? ALL_SLOTS_6 : ALL_SLOTS_10;
 
-  const elements = [];
+  // Group cups
+  const activeCups = cups.filter(c => c.status === 'standing');
+  const hitCups = cups.filter(c => c.status === 'hit');
 
-  for (const [pos, { x, y }] of posMap) {
-    const cup = cupByPos.get(pos);
+  // Calculate SVG dimensions based on grid bounds
+  const allXs = allSlots.map(s => grid[s].x);
+  const allYs = allSlots.map(s => grid[s].y);
+  const minX = Math.min(...allXs);
+  const maxX = Math.max(...allXs);
+  const minY = Math.min(...allYs);
+  const maxY = Math.max(...allYs);
 
-    if (!cup) {
-      // Ghost: position exists in layout but no cup assigned here
-      if (options.showGhosts) {
-        elements.push(`<circle cx="${x}" cy="${y}" r="${CUP_RADIUS}"
-          fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"
-          stroke-dasharray="3 3"/>`);
-      }
-      continue;
-    }
-
-    let fill, stroke, opacity = '1';
-
-    if (cup.status === 'hit') {
-      fill    = 'var(--surface-3)';
-      stroke  = 'var(--surface-2)';
-      opacity = '0.30';
-    } else if (options.hitCounts) {
-      // Heatmap mode
-      const count     = options.hitCounts.get(pos) ?? 0;
-      const maxCount  = Math.max(...options.hitCounts.values(), 1);
-      const intensity = count / maxCount;
-      const r = Math.round(61  + (225 - 61)  * intensity);
-      const g = Math.round(134 + (64  - 134) * intensity);
-      const b = Math.round(198 + (45  - 198) * intensity);
-      fill   = `rgb(${r},${g},${b})`;
-      stroke = 'var(--surface-3)';
-    } else {
-      fill   = 'var(--blue)';
-      stroke = 'rgba(255,255,255,0.15)';
-    }
-
-    const isClickable = options.interactive && cup.status === 'standing';
-    const attrs = isClickable
-      ? `data-cup-id="${cup.id}" data-rack-pos="${pos}" style="cursor:pointer;"`
-      : '';
-
-    elements.push(`
-      <circle cx="${x}" cy="${y}" r="${CUP_RADIUS}"
-        fill="${fill}" stroke="${stroke}" stroke-width="2"
-        opacity="${opacity}" ${attrs}/>
-      ${cup.status === 'standing' && !options.hitCounts
-        ? `<text x="${x}" y="${y + 4}" text-anchor="middle"
-             font-size="10" font-weight="500"
-             fill="rgba(255,255,255,0.55)" font-family="Inter,sans-serif"
-             pointer-events="none">${pos + 1}</text>`
-        : ''}
-    `);
+  // Account for line cups in bounds
+  if (showLineCups && lineCups.length > 0) {
+    lineCups.forEach(lc => {
+      allXs.push(lc.x);
+      allYs.push(lc.y);
+    });
+    const lineMinX = Math.min(...lineCups.map(lc => lc.x));
+    const lineMaxX = Math.max(...lineCups.map(lc => lc.x));
+    const lineMinY = Math.min(...lineCups.map(lc => lc.y));
+    const lineMaxY = Math.max(...lineCups.map(lc => lc.y));
+    allXs.push(lineMinX, lineMaxX);
+    allYs.push(lineMinY, lineMaxY);
   }
 
-  return `<svg viewBox="0 0 ${svgWidth} ${svgHeight}"
-    width="${svgWidth}" height="${svgHeight}"
-    xmlns="http://www.w3.org/2000/svg"
-    style="overflow:visible; display:block;">${elements.join('')}</svg>`;
-}
+  const svgW = (Math.max(...allXs) - Math.min(...allXs)) * CELL + CUP_W + PAD * 2;
+  const svgH = (Math.max(...allYs) - Math.min(...allYs)) * CELL + CUP_H + PAD * 2;
 
-/** Convenience: derive cup count from array length. */
-export function cupCountFromArray(cups) {
-  return cups.length > 6 ? 10 : 6;
+  const { redId, blueId } = getGradientIds();
+
+  function toXY(gx, gy) {
+    const minXAll = Math.min(...allXs);
+    const minYAll = Math.min(...allYs);
+    return {
+      cx: PAD + CUP_W / 2 + (gx - minXAll) * CELL,
+      cy: PAD + CUP_H / 2 + yToPx(gy) - yToPx(minYAll),
+    };
+  }
+
+  let shapes = '';
+
+  // Draw ghost cups (inactive positions) first
+  if (showGhosts) {
+    allSlots.forEach(slot => {
+      const cup = activeCups.find(c => c.rack_position === slot);
+      if (!cup) {
+        const {x, y} = grid[slot];
+        const {cx, cy} = toXY(x, y);
+        shapes += renderCup(cx, cy, false, false);
+      }
+    });
+  }
+
+  // Draw active cups
+  activeCups.forEach(cup => {
+    const {x, y} = grid[cup.rack_position];
+    const {cx, cy} = toXY(x, y);
+    const isRed = cup.team === 'A';
+    const cupSvg = renderCup(cx, cy, true, isRed);
+    
+    if (interactive) {
+      shapes += `<g data-cup-id="${cup.id}" data-team="${cup.team}" data-rack-position="${cup.rack_position}">${cupSvg}</g>`;
+    } else {
+      shapes += cupSvg;
+    }
+  });
+
+  // Draw line cups (for re-rack formations)
+  if (showLineCups && lineCups.length > 0) {
+    lineCups.forEach(lc => {
+      const {cx, cy} = toXY(lc.x, lc.y);
+      // Line cups are always active in formation previews
+      shapes += renderCup(cx, cy, true, false, true);
+    });
+  }
+
+  // Draw hit cups (as X marks or different style)
+  hitCups.forEach(cup => {
+    const {x, y} = grid[cup.rack_position];
+    const {cx, cy} = toXY(x, y);
+    const isRed = cup.team === 'A';
+    shapes += renderCup(cx, cy, false, isRed);
+    
+    // Add X mark for hit cups
+    const size = CUP_W * 0.6;
+    shapes += `<line x1="${cx-size/2}" y1="${cy-size/2}" x2="${cx+size/2}" y2="${cy+size/2}" 
+              stroke="${isRed ? '#E2402D' : '#3D86C6'}" stroke-width="2" opacity="0.7"/>
+              <line x1="${cx+size/2}" y1="${cy-size/2}" x2="${cx-size/2}" y2="${cy+size/2}" 
+              stroke="${isRed ? '#E2402D' : '#3D86C6'}" stroke-width="2" opacity="0.7"/>`;
+  });
+
+  return `<svg width="${Math.ceil(svgW)}" height="${Math.ceil(svgH)}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    <defs>
+      <linearGradient id="${redId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F2604B"/>
+        <stop offset="100%" stop-color="#C43020"/>
+      </linearGradient>
+      <linearGradient id="${blueId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#5AA3DE"/>
+        <stop offset="100%" stop-color="#2A6A9E"/>
+      </linearGradient>
+    </defs>
+    ${shapes}
+  </svg>`;
 }
