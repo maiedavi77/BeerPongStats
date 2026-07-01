@@ -1,5 +1,5 @@
 /**
- * src/ui/screens/live-game.js 
+ * src/ui/screens/live-game.js
  *
  * Live game scoring screen.
  *
@@ -566,7 +566,11 @@ async function persistThrow(outcome, cupId) {
 
   const throwerId = currentThrower(_state)?.user_id ?? currentUser?.id;
   const isDodge   = outcome === 'hit' ? _dodgeArmed : false;
-  _dodgeArmed     = false;  // reset after every throw
+  _dodgeArmed     = false;
+
+  // Track previous state to detect pair resolution
+  const prevPhase = _state.phase;
+  const prevStatus = _state.status;
 
   try {
     logThrow(_state, outcome, cupId, throwerId, isDodge);
@@ -578,9 +582,20 @@ async function persistThrow(outcome, cupId) {
 
   updateUI();
 
-  // Persist to DB — always before any navigation
   const { error } = await writeThrow(outcome, cupId, throwerId);
-  if (error) toast(`Sync error: ${error}`, 'error');
+  if (error) {
+    toast(`Sync error: ${error}`, 'error');
+    _throwing = false;
+    return;
+  }
+
+  // ✅ NEW: Persist cup statuses only after pair is resolved
+  const pairResolved = prevPhase === 'throw2' && _state.phase !== 'throw2';
+  const gameComplete = _state.status === 'complete';
+
+  if (pairResolved || gameComplete) {
+    await persistCupStatuses();
+  }
 
   _throwing = false;
 
@@ -618,14 +633,9 @@ async function writeThrow(outcome, cupId, throwerId) {
       return { error: throwErr.message };
     }
 
+    // ✅ FIXED: Only write throw_cups junction, NOT cup status
+    // This prevents premature cup removal before both throws are done
     if (outcome === 'hit' && cupId) {
-      const { error: cupErr } = await supabase
-        .from('cups')
-        .update({ status: 'hit' })
-        .eq('id', cupId)
-        .eq('status', 'standing');
-      if (cupErr) return { error: cupErr.message };
-
       await supabase
         .from('throw_cups')
         .insert({ throw_id: throwData.id, cup_id: cupId });
@@ -635,6 +645,29 @@ async function writeThrow(outcome, cupId, throwerId) {
   }
 
   return { error: 'Sequence conflict — please retry' };
+}
+
+/**
+ * Persist cup statuses to DB after a pair is resolved.
+ * This ensures cups are only marked as hit AFTER both throws are processed,
+ * allowing the same cup to be hit by both throws.
+ */
+async function persistCupStatuses() {
+  if (!_state) return;
+
+  const hitCups = [];
+  for (const team of ['A', 'B']) {
+    hitCups.push(..._state.cups[team].filter(c => c.status === 'hit'));
+  }
+
+  for (const cup of hitCups) {
+    const { error } = await supabase
+      .from('cups')
+      .update({ status: 'hit' })
+      .eq('id', cup.id)
+      .eq('status', 'standing');
+    if (error) console.error('Failed to update cup status:', error);
+  }
 }
 
 async function finalizeGame(gameId, winnerTeam) {
