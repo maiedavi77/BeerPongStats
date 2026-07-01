@@ -1,4 +1,3 @@
-
 /**
  * src/ui/screens/live-game.js
  *
@@ -11,15 +10,16 @@
  *   3. bonus  — if bonus cups earned (dodge / same cup), tap defending cups to
  *              select for removal, then confirm.
  *
+ * BONUS RULES:
+ * - Both balls hit SAME cup: +2 bonus removals
+ * - Each dodge hit: +1 bonus removal
+ * - Both balls hit DIFFERENT cups: balls back (same team throws again)
+ * - Example: Both in same cup + 1 dodge = 3 bonus removals (2+1)
+ *
  * Re-rack:
  *   Each team may re-rack the cups they throw at ONCE per game.
  *   Button appears at the start of throw1 only (before any throw).
  *   Navigates to re-rack.js which updates rack_positions and returns here.
- *
- * Dodge:
- *   Toggle the Dodge button BEFORE tapping the cup.
- *   The cup is still removed; 1 bonus cup removal is earned.
- *   Resets automatically after each throw.
  */
 
 import { supabase, currentUser } from '../../supabase.js';
@@ -96,10 +96,10 @@ export default async function render($el, { id: gameId }) {
       </div>
 
       <!-- Target rack -->
-      <div class="card" style="margin-bottom:0.75rem; text-align:center; padding:0.75rem 0.75rem 1rem;">
+      <div class="card" style="margin-bottom:0.75rem; text-align:center; padding:0.75rem 0.75rem 1rem; background:var(--surface); border:1px solid var(--line); border-radius:14px;">
         <div id="target-label"
-          style="font-size:0.7rem; color:var(--text-faint); text-transform:uppercase;
-                 letter-spacing:0.06em; margin-bottom:0.6rem;">Target rack</div>
+          style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
+                 text-transform:uppercase; color:var(--text-faint); margin-bottom:0.6rem;">Target rack</div>
         <div id="rack-target" style="display:inline-block;"></div>
       </div>
 
@@ -116,7 +116,7 @@ export default async function render($el, { id: gameId }) {
         <!-- Re-rack button (throw1 only, once per team) -->
         <div id="rerack-area" style="display:none; margin-bottom:0.5rem;">
           <button id="rerack-btn" class="btn-secondary"
-            style="width:100%; font-size:0.85rem; border:1px dashed var(--line);">
+            style="width:100%; font-size:0.85rem; border:1px dashed var(--line); border-radius:11px;">
             ↕ Re-rack — use 1× this game
           </button>
         </div>
@@ -178,11 +178,12 @@ export default async function render($el, { id: gameId }) {
       </div>
 
       <!-- Throw log -->
-      <div class="card">
-        <span class="label">Event log</span>
+      <div class="card" style="background:var(--surface); border:1px solid var(--line); border-radius:14px;">
+        <span class="label" style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
+               text-transform:uppercase; color:var(--text-faint); padding:0.6rem 0.75rem; display:block;">Event log</span>
         <div id="throw-log"
           style="max-height:160px; overflow-y:auto; font-size:0.8rem;
-                 font-family:'JetBrains Mono',monospace; color:var(--text-dim);">
+                 font-family:'JetBrains Mono',monospace; color:var(--text-dim); padding:0 0.75rem 0.5rem;">
           <p style="color:var(--text-faint);">No throws yet</p>
         </div>
       </div>
@@ -296,11 +297,11 @@ function updateUI() {
     if (g.phase === 'bonus') {
       let reason = '';
       if (g.dodgeCount > 0 && g.sameCupHit)
-        reason = `🛡️💥 ${g.dodgeCount} dodge + same cup`;
+        reason = `🛡️💥 ${g.dodgeCount} dodge + same cup (+3)`;
       else if (g.dodgeCount > 0)
-        reason = `🛡️ ${g.dodgeCount} dodge${g.dodgeCount > 1 ? 's' : ''} called`;
+        reason = `🛡️ ${g.dodgeCount} dodge${g.dodgeCount > 1 ? 's' : ''} called (+${g.dodgeCount})`;
       else if (g.sameCupHit)
-        reason = '💥 Same cup hit twice';
+        reason = '💥 Same cup hit twice (+2)';
       bonusBanner.textContent =
         `${reason} — pick ${g.bonusRequired} cup${g.bonusRequired !== 1 ? 's' : ''} to remove`;
       bonusBanner.style.display = 'block';
@@ -435,11 +436,23 @@ function refreshBonusVisuals() {
   const $target = document.getElementById('rack-target');
   if (!$target) return;
 
-  $target.querySelectorAll('circle[data-cup-id]').forEach(circle => {
-    const selected = _state.bonusSelected.includes(circle.dataset.cupId);
-    circle.setAttribute('fill',   selected ? 'var(--green)' : 'var(--blue)');
-    circle.setAttribute('stroke', selected ? 'rgba(116,182,135,0.5)' : 'rgba(255,255,255,0.15)');
-    circle.setAttribute('stroke-width', selected ? '3' : '2');
+  $target.querySelectorAll('polygon').forEach((poly, index) => {
+    const cupEl = poly.closest('[data-cup-id]');
+    if (!cupEl) return;
+
+    const cupId = cupEl.dataset.cupId;
+    const selected = _state.bonusSelected.includes(cupId);
+    const isRed = cupEl.dataset.team === 'A';
+
+    if (selected) {
+      poly.setAttribute('fill', 'var(--green)');
+      poly.setAttribute('stroke', 'rgba(116,182,135,0.5)');
+      poly.setAttribute('stroke-width', '3');
+    } else {
+      poly.setAttribute('fill', isRed ? 'url(#grad-red)' : 'url(#grad-blue)');
+      poly.setAttribute('stroke', isRed ? '#C43020' : '#2A6A9E');
+      poly.setAttribute('stroke-width', '1');
+    }
   });
 
   const confirmEl = document.getElementById('bonus-confirm');
