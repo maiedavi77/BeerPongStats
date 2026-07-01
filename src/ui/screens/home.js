@@ -9,7 +9,7 @@
 import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
-import { renderTabBar } from '../components/tab-bar.js';
+// Tab bar is managed centrally by app.js → updateTabBar(); no import needed here.
 
 // Realtime channel reference (cleaned up on teardown)
 let channel = null;
