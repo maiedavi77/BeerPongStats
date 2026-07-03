@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#17111F" />
+  <meta name="description" content="Real-time beer pong tracker" />
+  <title>RACKED</title>
+
+  <!-- PWA manifest (Phase 5) -->
+  <!-- <link rel="manifest" href="./manifest.json" /> -->
+
+  <!-- Fonts: Bebas Neue + Inter (critical, needed for first paint) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <!-- JetBrains Mono (non-critical, used for sequence numbers) — load async -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap"
+    rel="preload" as="style"
+    onload="this.onload=null;this.rel='stylesheet'"
+  />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" /></noscript>
+
+  <!-- Cloudflare Turnstile widget script -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+  <style>
+    /* ─── Design tokens ───────────────────────────────────── */
+    :root {
+      --bg:         #17111F;
+      --surface:    #231A2E;
+      --surface-2:  #2C2138;
+      --surface-3:  #372A45;
+      --text:       #F4ECE0;
+      --text-dim:   #B6A6C4;
+      --text-faint: #83738F;
+      --red:        #E2402D;
+      --red-dim:    rgba(226, 64, 45, 0.18);
+      --blue:       #3D86C6;
+      --blue-dim:   rgba(61, 134, 198, 0.18);
+      --amber:      #F2A93B;
+      --amber-dim:  rgba(242, 169, 59, 0.18);
+      --green:      #74B687;
+      --green-dim:  rgba(116, 182, 135, 0.18);
+      --purple:     #9B6FD4;
+      --purple-dim: rgba(155, 111, 212, 0.18);
+      --line:       rgba(244, 236, 224, 0.10);
+
+      --radius-card: 14px;
+      --radius-sm:   12px;
+      --radius:      14px;
+      --pad-screen:  18px;
+      --pad-card:    16px;
+    }
+
+    /* ─── Reset & base ────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      letter-spacing: 0.04em;
+    }
+
+    code, pre, .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 0.65rem 1.25rem;
+      transition: opacity 0.15s;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:not(:disabled):active { opacity: 0.75; }
+
+    input, textarea {
+      background: var(--surface-2);
+      border: 1px solid var(--surface-3);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.65rem 0.9rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, textarea:focus { border-color: var(--blue); }
+    input::placeholder, textarea::placeholder { color: var(--text-faint); }
+
+    /* ─── Layout shell ────────────────────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    #screen {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--pad-screen);
+      padding-bottom: calc(var(--pad-screen) + 64px); /* room for tab bar */
+    }
+
+    /* ─── Loading state ───────────────────────────────────── */
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 1rem;
+    }
+
+    #loading h1 {
+      font-size: 3.5rem;
+      color: var(--purple);
+    }
+
+    #loading p {
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+
+    /* ─── Toast notifications ─────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 9999;
+      pointer-events: none;
+      max-width: 420px;
+      width: calc(100% - 2rem);
+    }
+
+    .toast {
+      background: var(--surface-3);
+      color: var(--text);
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.toast-error { border-left: 3px solid var(--red); }
+    .toast.toast-success { border-left: 3px solid var(--green); }
+
+    /* ─── Utility classes ─────────────────────────────────── */
+    .btn-primary {
+      background: var(--purple);
+      color: #fff;
+      width: 100%;
+    }
+    .btn-secondary {
+      background: var(--surface-3);
+      color: var(--text);
+    }
+    .btn-danger {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius-card);
+      padding: var(--pad-card);
+    }
+
+    .label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+      display: block;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+
+    .error-msg {
+      color: var(--red);
+      font-size: 0.8rem;
+      margin-top: 0.3rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-dim);
+    }
+    .empty-state h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+    /* ══════════════════════════════════════════════════════════
+       v1 design system — live game, cups, sheets, re-rack.
+       All button rules are scoped under `.btn` so they never
+       touch the legacy bare `.btn-primary` used elsewhere.
+       ══════════════════════════════════════════════════════════ */
+
+    /* ─── Buttons (.btn family) ───────────────────────────── */
+    .btn {
+      border: none; border-radius: 11px; padding: 13px 18px;
+      font-weight: 600; font-size: 14.5px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; transition: transform .12s ease;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn.btn-primary { background: var(--amber); color: #241405; width: auto; }
+    .btn.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn.btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+    .btn.btn-danger { background: var(--red); color: #fff; }
+    .btn.btn-danger-ghost { background: transparent; color: #E8897C; border: 1px solid rgba(226,64,45,0.35); }
+    .btn.btn-block { width: 100%; }
+
+    /* ─── Section title / empty ───────────────────────────── */
+    .section-title {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--text-faint); margin: 22px 0 10px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .empty {
+      text-align: center; padding: 40px 16px; color: var(--text-faint);
+      border: 1px dashed var(--line); border-radius: var(--radius);
+    }
+    .empty .big {
+      font-family: 'Bebas Neue', sans-serif; font-size: 22px;
+      color: var(--text-dim); display: block; margin-bottom: 6px;
+    }
+
+    /* ─── Sheets ──────────────────────────────────────────── */
+    .sheet-backdrop {
+      position: fixed; inset: 0; background: rgba(10,7,14,0.65);
+      z-index: 40; display: flex; align-items: flex-end; justify-content: center;
+    }
+    .sheet {
+      background: var(--bg); width: 100%; max-width: 480px; max-height: 92vh;
+      overflow-y: auto; border-radius: 20px 20px 0 0;
+      border: 1px solid var(--line); border-bottom: none;
+      padding: 18px 18px 28px; animation: slideup .22s ease-out;
+    }
+    @keyframes slideup { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .sheet-handle { width: 36px; height: 4px; background: var(--surface-3); border-radius: 99px; margin: 0 auto 14px; }
+    .sheet h2 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; margin: 0 0 16px; }
+    .confirm-msg { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin: 0 0 22px; }
+
+    /* ─── Live game header / score ────────────────────────── */
+    .live-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .back-link { background: none; border: none; color: var(--text-dim); font-size: 13px; cursor: pointer; padding: 4px 0; }
+    .step-pill {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.5px;
+      text-transform: uppercase; color: var(--amber); background: var(--amber-dim);
+      padding: 5px 10px; border-radius: 99px;
+    }
+    .score-big {
+      font-family: 'Bebas Neue', sans-serif; font-size: 38px; text-align: center;
+      line-height: 1; display: flex; align-items: center; justify-content: center;
+      gap: 14px; margin: 4px 0 14px;
+    }
+    .score-big .num.A { color: var(--red); }
+    .score-big .num.B { color: var(--blue); }
+    .score-big .dash { color: var(--text-faint); font-size: 22px; }
+    .recap {
+      background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+      padding: 9px 12px; font-size: 12.5px; color: var(--text-dim);
+      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .recap b { color: var(--text); }
+
+    /* ─── Pyramid zone (rack) ─────────────────────────────── */
+    .pyramid-zone {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 18px 10px 14px;
+    }
+    .pyramid-zone.connected { border-radius: var(--radius) var(--radius) 0 0; }
+    .pz-label {
+      text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+      letter-spacing: 1px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 12px;
+    }
+    .pz-label b { color: var(--amber); }
+    .rack-holder { display: flex; justify-content: center; }
+
+    /* ─── SVG cup states ──────────────────────────────────── */
+    .cupg { transform-box: fill-box; transform-origin: center; cursor: pointer; transition: transform .12s ease; }
+    .cupg[role="button"]:active { transform: scale(0.9); }
+    .cupg.pending polygon { stroke: var(--amber); stroke-width: 3; animation: pendpulse 1s ease-in-out infinite; }
+    .cupg.bonus-sel polygon { stroke: var(--green); stroke-width: 3; }
+    @keyframes pendpulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: 0.3; } }
+
+    /* ─── Controls (attached to rack) ─────────────────────── */
+    .controls {
+      background: var(--surface-2); border: 1px solid var(--line); border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius); padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .ctl-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--text-faint); text-align: center;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+    .chip {
+      padding: 8px 13px; border-radius: 99px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: 1.5px solid var(--line); background: var(--surface); color: var(--text-dim);
+    }
+    .chip.active { background: var(--amber); color: #241405; border-color: var(--amber); }
+    .chip .temp-tag { opacity: 0.65; font-size: 10px; font-weight: 500; margin-left: 3px; }
+    .suggest-hint { text-align: center; font-size: 11px; color: var(--text-faint); }
+    .dodge-row { display: flex; justify-content: center; }
+    .dodge-toggle {
+      display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 99px;
+      border: 1.5px dashed var(--line); background: var(--surface); color: var(--text-dim);
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .dodge-toggle.armed { background: var(--red-dim); border-color: var(--red); border-style: solid; color: #F2A093; }
+    .action-row { display: flex; gap: 8px; }
+    .miss-btn {
+      flex: 1; background: var(--surface); border: 1.5px dashed var(--line); color: var(--text-dim);
+      border-radius: 10px; padding: 12px; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .miss-btn:active { background: var(--surface-3); }
+    .end-controls { display: flex; gap: 8px; margin-top: 14px; }
+    .end-controls .btn { flex: 1; }
+    .bonus-banner {
+      text-align: center; padding: 12px; border-radius: 10px; margin-bottom: 10px;
+      background: var(--green-dim); border: 1px solid rgba(116,182,135,0.4);
+      font-size: 13px; color: var(--green); font-weight: 600;
+    }
+    .bonus-count { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); }
+    .result-banner {
+      text-align: center; padding: 18px; border-radius: var(--radius); margin-bottom: 14px;
+      background: var(--green-dim); border: 1px solid rgba(116,182,135,0.4);
+    }
+    .result-banner .big { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--green); }
+    .result-banner small { color: var(--text-dim); font-size: 12.5px; }
+    .feed { margin-top: 16px; }
+    .feed-line {
+      font-size: 12.5px; color: var(--text-dim); padding: 7px 0; border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; gap: 8px;
+    }
+    .feed-line:last-child { border-bottom: none; }
+    .feed-line .t { color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 10.5px; flex: none; }
+
+    /* ─── Re-rack ─────────────────────────────────────────── */
+    .rerack-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .rerack-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 12px; border-radius: 99px; border: 1.5px solid var(--line);
+      background: var(--surface); font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .rerack-btn:active { opacity: 0.7; }
+    .rerack-formations { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+    .formation-card {
+      background: var(--surface); border: 2px solid var(--line); border-radius: 12px;
+      padding: 12px 8px 10px; cursor: pointer; text-align: center;
+    }
+    .formation-card.sel { background: var(--amber-dim); border-color: var(--amber); }
+    .formation-name { font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--text); }
+    .formation-preview { display: flex; align-items: center; justify-content: center; min-height: 60px; }
+    .rerack-note { font-size: 11.5px; color: var(--text-faint); text-align: center; margin-top: 10px; line-height: 1.5; }
+
+    /* ─── New game (team blocks / pills) ──────────────────── */
+    .team-block { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+    .team-block.A { border-color: rgba(226,64,45,0.35); }
+    .team-block.B { border-color: rgba(61,134,198,0.35); }
+    .team-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px;
+      text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 7px;
+    }
+    .team-label .sw { width: 9px; height: 9px; border-radius: 50%; }
+    .team-label.A .sw { background: var(--red); }
+    .team-label.B .sw { background: var(--blue); }
+    .pill-row { display: flex; gap: 8px; }
+    .pill {
+      flex: 1; text-align: center; padding: 11px; border-radius: 9px;
+      background: var(--surface-2); border: 1px solid var(--line);
+      color: var(--text-dim); cursor: pointer; font-weight: 600; font-size: 13.5px;
+    }
+    .pill.sel { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Screen content rendered here by router -->
+    <div id="screen">
+      <div id="loading">
+        <h1>RACKED</h1>
+        <p>Loading…</p>
+      </div>
+    </div>
+    <!-- Tab bar injected by tab-bar.js when authenticated -->
+    <nav id="tab-bar"></nav>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Boot the app -->
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

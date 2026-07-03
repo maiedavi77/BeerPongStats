@@ -1,0 +1,2 @@
+export const SUPABASE_URL = 'https://oxrxctztriezuonduteg.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_NEs5ai5ICc4Xkp3XtlLE3g_UNOl5HIr';
