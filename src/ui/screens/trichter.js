@@ -42,8 +42,8 @@ export default async function render($el) {
           </p>
           <div class="field">
             <label class="label" for="player-search">Player</label>
-            <input type="text" id="player-search" placeholder="Search or type a name…" autocomplete="off" />
-            <div id="player-results" style="margin-top:0.3rem;"></div>
+            <input type="text" id="player-search" placeholder="Select a player or type a name…" autocomplete="off" />
+            <div id="player-results" style="margin-top:0.3rem; max-height:220px; overflow-y:auto;"></div>
             <input type="hidden" id="selected-user-id" value="" />
             <div id="selected-player-display" style="display:none; font-size:0.8rem; color:var(--green); margin-top:0.4rem;"></div>
           </div>
@@ -75,8 +75,16 @@ export default async function render($el) {
     _timerInterval = setInterval(tick, 100);
   }
 
+  // Load all active players once — the picker shows the full list on focus
+  // and filters locally (same combo-box pattern as the new-game screen).
+  const { data: playerData } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .eq('is_active', true)
+    .order('display_name');
+
   attachTimerHandlers();
-  attachSaveHandlers();
+  const removePickerListener = attachSaveHandlers(playerData ?? []);
   await loadHistory();
 
   // Teardown: clear interval if navigating away while running
@@ -85,6 +93,7 @@ export default async function render($el) {
       clearInterval(_timerInterval);
       _timerInterval = null;
     }
+    removePickerListener?.();
   };
 }
 
@@ -132,55 +141,69 @@ function attachTimerHandlers() {
 
 // ── Save form ─────────────────────────────────────────────────────────────
 
-function attachSaveHandlers() {
-  let searchDebounce = null;
+function attachSaveHandlers(allPlayers) {
   let selectedUser = null;
 
   const searchInput = document.getElementById('player-search');
-  if (!searchInput) return;
+  if (!searchInput) return null;
 
+  const renderOptions = query => {
+    const $results = document.getElementById('player-results');
+    if (!$results) return;
+
+    const q = query.toLowerCase();
+    const options = allPlayers.filter(p =>
+      q === '' || p.display_name.toLowerCase().includes(q));
+
+    if (!options.length) {
+      // No match — the typed text can still be saved as a free name.
+      $results.innerHTML = query
+        ? `<div style="padding:0.4rem 0.75rem; color:var(--text-faint); font-size:0.8rem;">
+             No registered player — "${query.replace(/</g,'&lt;')}" will be saved as a name</div>`
+        : '';
+      return;
+    }
+
+    $results.innerHTML = options.map(p => `
+      <div data-uid="${p.id}" data-name="${p.display_name.replace(/"/g,'&quot;')}"
+        style="padding:0.4rem 0.75rem; background:var(--surface-2); border-radius:8px;
+               margin-bottom:0.25rem; cursor:pointer; font-size:0.875rem;"
+        onmouseenter="this.style.background='var(--surface-3)'"
+        onmouseleave="this.style.background='var(--surface-2)'"
+      >${p.display_name}</div>`).join('');
+
+    $results.querySelectorAll('[data-uid]').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedUser = { id: el.dataset.uid, name: el.dataset.name };
+        document.getElementById('selected-user-id').value = el.dataset.uid;
+        searchInput.value = el.dataset.name;
+        $results.innerHTML = '';
+        const display = document.getElementById('selected-player-display');
+        display.textContent = `✓ ${el.dataset.name}`;
+        display.style.display = 'block';
+      });
+    });
+  };
+
+  // Full list on focus/tap; local filter while typing. Typing clears any
+  // previous selection (the text may be a free name for someone unregistered).
+  searchInput.addEventListener('focus', () => renderOptions(searchInput.value.trim()));
+  searchInput.addEventListener('click', () => renderOptions(searchInput.value.trim()));
   searchInput.addEventListener('input', () => {
-    clearTimeout(searchDebounce);
-    const query = searchInput.value.trim();
     selectedUser = null;
     document.getElementById('selected-user-id').value = '';
     document.getElementById('selected-player-display').style.display = 'none';
-
-    if (query.length < 1) { document.getElementById('player-results').innerHTML = ''; return; }
-
-    searchDebounce = setTimeout(async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, display_name')
-        .eq('is_active', true)
-        .ilike('display_name', `%${query}%`)
-        .limit(5);
-
-      const $results = document.getElementById('player-results');
-      if (!$results) return;
-      if (!data?.length) { $results.innerHTML = ''; return; }
-
-      $results.innerHTML = data.map(p => `
-        <div data-uid="${p.id}" data-name="${p.display_name.replace(/"/g,'&quot;')}"
-          style="padding:0.4rem 0.75rem; background:var(--surface-2); border-radius:8px;
-                 margin-bottom:0.25rem; cursor:pointer; font-size:0.875rem;"
-          onmouseenter="this.style.background='var(--surface-3)'"
-          onmouseleave="this.style.background='var(--surface-2)'"
-        >${p.display_name}</div>`).join('');
-
-      $results.querySelectorAll('[data-uid]').forEach(el => {
-        el.addEventListener('click', () => {
-          selectedUser = { id: el.dataset.uid, name: el.dataset.name };
-          document.getElementById('selected-user-id').value = el.dataset.uid;
-          searchInput.value = el.dataset.name;
-          $results.innerHTML = '';
-          const display = document.getElementById('selected-player-display');
-          display.textContent = `✓ ${el.dataset.name}`;
-          display.style.display = 'block';
-        });
-      });
-    }, 200);
+    renderOptions(searchInput.value.trim());
   });
+
+  // Close the dropdown when tapping outside the picker
+  const onDocClick = e => {
+    const $results = document.getElementById('player-results');
+    if ($results && !searchInput.contains(e.target) && !$results.contains(e.target)) {
+      $results.innerHTML = '';
+    }
+  };
+  document.addEventListener('click', onDocClick);
 
   document.getElementById('save-btn').addEventListener('click', async () => {
     const errEl = document.getElementById('save-error');
@@ -245,6 +268,8 @@ function attachSaveHandlers() {
     document.getElementById('selected-user-id').value = '';
     document.getElementById('selected-player-display').style.display = 'none';
   });
+
+  return () => document.removeEventListener('click', onDocClick);
 }
 
 // ── History ──────────────────────────────────────────────────────────────

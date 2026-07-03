@@ -138,13 +138,22 @@ export async function writeBonus(cupIds) {
 
 /** Persist a re-rack: position updates + the re_racks log row. */
 export async function writeRerack(gameId, team, updates, cupsRemaining) {
-  for (const u of updates) {
+  // Line-slot codes (>= 100) go first: if the DB constraint rejects them
+  // (migration not applied yet), no cup has moved and the rack stays intact.
+  const ordered = [...updates].sort((a, b) => b.rack_position - a.rack_position);
+  for (const u of ordered) {
     const { error } = await supabase
       .from('cups')
       .update({ rack_position: u.rack_position })
       .eq('id', u.id)
       .eq('status', 'standing');
-    if (error) return { error: error.message };
+    if (error) {
+      // See migrations/2026-07-03-line-cup-positions.sql
+      if (error.message?.includes('cups_rack_position_check')) {
+        return { error: 'Line positions are blocked by the database — run migrations/2026-07-03-line-cup-positions.sql in Supabase' };
+      }
+      return { error: error.message };
+    }
   }
   const { error } = await supabase.from('re_racks').insert({
     game_id: gameId,

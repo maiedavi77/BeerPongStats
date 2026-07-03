@@ -9,13 +9,14 @@ import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
 import { renderHeatmap } from '../components/heatmap.js';
+import { formatDuration } from './trichter.js';
 
 export default async function render($el, { id: profileId }) {
   if (!profileId) { navigate('#/board'); return; }
 
   $el.innerHTML = `<div class="empty-state"><p style="color:var(--text-faint);">Loading profile…</p></div>`;
 
-  const { profile, games, throws, cups, error } = await loadProfile(profileId);
+  const { profile, games, throws, cups, trichters, error } = await loadProfile(profileId);
 
   if (error || !profile) {
     $el.innerHTML = `<div class="empty-state"><p style="color:var(--red);">Profile not found.</p></div>`;
@@ -24,6 +25,7 @@ export default async function render($el, { id: profileId }) {
 
   const isOwnProfile = currentUser?.id === profileId;
   const stats = computeStats(profileId, games, throws);
+  const tStats = computeTrichterStats(trichters);
 
   $el.innerHTML = `
     <div>
@@ -64,6 +66,25 @@ export default async function render($el, { id: profileId }) {
             <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:${color};">${val}</div>
             <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">${label}</div>
           </div>`).join('')}
+      </div>
+
+      <!-- Trichter -->
+      <div class="card" style="margin-bottom:1rem;">
+        <span class="label">Trichter</span>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-top:0.5rem;">
+          <div style="text-align:center;">
+            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:var(--amber);">${tStats.count}</div>
+            <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Total</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:var(--green);">${tStats.count ? formatDuration(tStats.best) : '—'}</div>
+            <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Best</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:var(--text);">${tStats.count ? formatDuration(tStats.avg) : '—'}</div>
+            <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Average</div>
+          </div>
+        </div>
       </div>
 
       <!-- Heatmap -->
@@ -110,6 +131,17 @@ export default async function render($el, { id: profileId }) {
   }
 }
 
+/** Trichter count / best / average from the player's rows. */
+function computeTrichterStats(trichters) {
+  if (!trichters?.length) return { count: 0, best: null, avg: null };
+  const durations = trichters.map(t => t.duration_ms);
+  return {
+    count: durations.length,
+    best: Math.min(...durations),
+    avg: Math.round(durations.reduce((a, b) => a + b, 0) / durations.length),
+  };
+}
+
 function computeStats(userId, games, throws) {
   let wins = 0, losses = 0;
   for (const g of games) {
@@ -134,11 +166,12 @@ function computeStats(userId, games, throws) {
 }
 
 async function loadProfile(userId) {
-  const [profileRes, gamesRes] = await Promise.all([
+  const [profileRes, gamesRes, trichterRes] = await Promise.all([
     supabase.from('profiles').select('id, email, display_name').eq('id', userId).single(),
     supabase.from('games')
       .select('id, winner_team, cup_count, game_participants(team, user_id)')
       .eq('status', 'complete'),
+    supabase.from('trichters').select('duration_ms').eq('person_user_id', userId),
   ]);
 
   // Filter games this user participated in
@@ -163,6 +196,7 @@ async function loadProfile(userId) {
     games: userGames,
     throws,
     cups,
+    trichters: trichterRes.data ?? [],
     error: profileRes.error?.message,
   };
 }
