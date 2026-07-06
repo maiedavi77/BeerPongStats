@@ -13,7 +13,7 @@ import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
 import { rememberFirstTeam } from '../../game-sync.js';
-import { eventMembers, eventGuests, createGuest, amParticipant } from '../../events-data.js';
+import { eventMembers, eventGuests, createGuest, amParticipant, getEvent, eventOpen, eventClosedReason } from '../../events-data.js';
 import { esc } from '../../format.js';
 import { avatarHtml } from '../../photos.js';
 
@@ -24,6 +24,14 @@ export default async function render($el, params) {
   if (!(await amParticipant(eventId))) {
     $el.innerHTML = `<div class="empty-state"><h2>Members only</h2>
       <p style="color:var(--text-faint);">Only event members can start games.</p></div>`;
+    return;
+  }
+
+  const { event } = await getEvent(eventId);
+  if (!eventOpen(event)) {
+    $el.innerHTML = `<div class="empty-state"><h2>Event closed</h2>
+      <p style="color:var(--text-faint);">${eventClosedReason(event)} — no new games can be started.</p>
+      <button class="btn btn-ghost" onclick="location.hash='#/event/${eventId}'">‹ Back to event</button></div>`;
     return;
   }
 

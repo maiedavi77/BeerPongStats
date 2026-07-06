@@ -12,12 +12,14 @@ import { toast } from '../components/toast.js';
 import { myEvents, createEvent } from '../../events-data.js';
 import { esc, shortDate } from '../../format.js';
 
-export default async function render($el) {
+export default async function render($el, params) {
+  const archived = (params?._path === '/past');
+
   $el.innerHTML = `
     <div>
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-        <h1 style="font-size:2.5rem; color:var(--purple);">EVENTS</h1>
-        ${currentUser?.is_admin
+        <h1 style="font-size:2.5rem; color:var(--purple);">${archived ? 'PAST EVENTS' : 'EVENTS'}</h1>
+        ${!archived && currentUser?.is_admin
           ? '<button id="new-event-btn" class="btn btn-primary" style="padding:0.5rem 1rem;">+ New event</button>'
           : ''}
       </div>
@@ -28,22 +30,24 @@ export default async function render($el) {
 
   document.getElementById('new-event-btn')?.addEventListener('click', openCreateSheet);
 
-  await loadList();
+  await loadList(archived);
 }
 
-async function loadList() {
+async function loadList(archived) {
   const $list = document.getElementById('events-list');
   if (!$list) return;
 
-  const { events, error } = await myEvents();
+  const { events, error } = await myEvents({ archived });
   if (error) { toast(`Could not load events: ${error}`, 'error'); return; }
 
   if (!events.length) {
     $list.innerHTML = `<div class="empty-state">
-      <h2>No events yet</h2>
-      <p style="color:var(--text-faint);">${currentUser?.is_admin
-        ? 'Create the first event to get the party started.'
-        : 'Ask an admin to invite you to an event.'}</p>
+      <h2>${archived ? 'No past events' : 'No events yet'}</h2>
+      <p style="color:var(--text-faint);">${archived
+        ? 'Archived events will show up here.'
+        : (currentUser?.is_admin
+          ? 'Create the first event to get the party started.'
+          : 'Ask an admin to invite you to an event.')}</p>
     </div>`;
     return;
   }
@@ -59,7 +63,7 @@ async function loadList() {
           </div>
           <div style="font-size:0.72rem; color:var(--text-faint);">
             ${e.event_participants?.length ?? 0} member${(e.event_participants?.length ?? 0) === 1 ? '' : 's'}
-            · ${shortDate(e.created_at)}
+            · ${e.starts_at ? `${shortDate(e.starts_at)}${e.ends_at ? ' – ' + shortDate(e.ends_at) : ''}` : shortDate(e.created_at)}
           </div>
         </div>
         <span style="color:var(--text-faint); font-size:1.2rem;">›</span>
@@ -93,6 +97,20 @@ async function openCreateSheet() {
         <label class="label" for="ev-name">Event name</label>
         <input type="text" id="ev-name" maxlength="60" placeholder="e.g. Summer Bash 2026" />
       </div>
+      <div style="display:flex; gap:0.6rem;">
+        <div class="field" style="flex:1;">
+          <label class="label" for="ev-start">Starts</label>
+          <input type="datetime-local" id="ev-start" />
+        </div>
+        <div class="field" style="flex:1;">
+          <label class="label" for="ev-end">Ends</label>
+          <input type="datetime-local" id="ev-end" />
+        </div>
+      </div>
+      <p style="font-size:0.68rem; color:var(--text-faint); margin:-0.4rem 0 0.8rem;">
+        Games, trichters and photos can only be added within this timeframe.
+        Leave empty for no restriction.
+      </p>
       <div class="field">
         <label class="label">Members</label>
         <input type="text" id="ev-member-filter" placeholder="Filter players…" autocomplete="off" />
@@ -150,11 +168,20 @@ async function openCreateSheet() {
     const name = bd.querySelector('#ev-name').value.trim();
     if (!name) { toast('Give the event a name', 'error'); return; }
 
+    const startRaw = bd.querySelector('#ev-start').value;
+    const endRaw = bd.querySelector('#ev-end').value;
+    const startsAt = startRaw ? new Date(startRaw).toISOString() : null;
+    const endsAt = endRaw ? new Date(endRaw).toISOString() : null;
+    if (startsAt && endsAt && startsAt >= endsAt) {
+      toast('The end must be after the start', 'error');
+      return;
+    }
+
     const btn = bd.querySelector('#ev-create');
     btn.disabled = true;
     btn.textContent = 'Creating…';
 
-    const { eventId, error } = await createEvent(name, [...selected]);
+    const { eventId, error } = await createEvent(name, [...selected], { startsAt, endsAt });
     if (error) {
       toast(`Could not create event: ${error}`, 'error');
       btn.disabled = false;

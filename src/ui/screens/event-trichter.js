@@ -11,7 +11,7 @@ import { supabase, currentUser } from '../../supabase.js';
 import { toast } from '../components/toast.js';
 import { eventMembers, eventGuests, createGuest } from '../../events-data.js';
 import { formatDuration, esc } from '../../format.js';
-import { getTrichterPhoto, uploadTrichterPhoto, photoUrl, avatarHtml } from '../../photos.js';
+import { uploadTrichterPhoto, photoUrl, avatarHtml } from '../../photos.js';
 
 let _timerInterval = null;
 let _startTime = null;
@@ -28,9 +28,11 @@ export default async function render($el, ctx) {
         <div id="timer-display" style="
           font-family:'Bebas Neue',sans-serif; font-size:4rem; color:var(--text);
           letter-spacing:0.05em; line-height:1; margin-bottom:1rem;">0:00.0</div>
-        ${isParticipant
+        ${isParticipant && ctx.open
           ? '<button id="start-stop-btn" class="btn-primary" style="font-size:1.1rem; padding:0.75rem 2rem;">Start</button>'
-          : '<p style="color:var(--text-faint); font-size:0.8rem;">Only event members can record trichters.</p>'}
+          : `<p style="color:var(--text-faint); font-size:0.8rem;">${!isParticipant
+              ? 'Only event members can record trichters.'
+              : ctx.closedReason + ' — no new trichters can be recorded.'}</p>`}
       </div>
 
       <div id="save-form" style="display:none;">
@@ -42,6 +44,17 @@ export default async function render($el, ctx) {
             <div id="player-results" style="margin-top:0.3rem; max-height:220px; overflow-y:auto;"></div>
             <input type="hidden" id="selected-user-id" value="" />
             <div id="selected-player-display" style="display:none; font-size:0.8rem; color:var(--green); margin-top:0.4rem;"></div>
+          </div>
+          <div class="field">
+            <label class="label">Photo (optional, one per trichter)</label>
+            <div id="tp-photo-empty">
+              <button id="tp-attach-btn" class="btn btn-ghost btn-block" style="font-size:0.85rem;">📷 Attach photo</button>
+            </div>
+            <div id="tp-photo-preview" style="display:none; align-items:center; gap:0.6rem;">
+              <img id="tp-photo-thumb" alt="" style="width:52px; height:52px; object-fit:cover; border-radius:10px; border:1px solid var(--line);" />
+              <span id="tp-photo-name" style="flex:1; font-size:0.75rem; color:var(--text-dim); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
+              <button id="tp-photo-remove" style="background:none; color:var(--text-faint); font-size:1rem;">✕</button>
+            </div>
           </div>
           <div id="save-error" class="error-msg" style="display:none; margin-bottom:0.75rem;"></div>
           <div style="display:flex; gap:0.5rem;">
@@ -82,7 +95,7 @@ export default async function render($el, ctx) {
   ].sort((a, b) => a.display_name.localeCompare(b.display_name));
 
   attachTimerHandlers();
-  const removePickerListener = isParticipant ? attachSaveHandlers(memberOptions, ctx.eventId) : null;
+  const removePickerListener = (isParticipant && ctx.open) ? attachSaveHandlers(memberOptions, ctx.eventId) : null;
   await loadHistory(ctx);
 
   return () => {
@@ -127,6 +140,32 @@ function attachTimerHandlers() {
 function attachSaveHandlers(memberOptions, eventId) {
   const searchInput = document.getElementById('player-search');
   if (!searchInput) return null;
+
+  // Optional photo, chosen BEFORE saving — uploaded together with the save.
+  let pendingPhoto = null;
+  let pendingPhotoUrl = null;
+
+  const setPendingPhoto = file => {
+    if (pendingPhotoUrl) URL.revokeObjectURL(pendingPhotoUrl);
+    pendingPhoto = file ?? null;
+    pendingPhotoUrl = file ? URL.createObjectURL(file) : null;
+    document.getElementById('tp-photo-empty').style.display = file ? 'none' : 'block';
+    const $prev = document.getElementById('tp-photo-preview');
+    $prev.style.display = file ? 'flex' : 'none';
+    if (file) {
+      document.getElementById('tp-photo-thumb').src = pendingPhotoUrl;
+      document.getElementById('tp-photo-name').textContent = file.name;
+    }
+  };
+
+  document.getElementById('tp-attach-btn')?.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => setPendingPhoto(input.files?.[0] ?? null));
+    input.click();
+  });
+  document.getElementById('tp-photo-remove')?.addEventListener('click', () => setPendingPhoto(null));
 
   const pick = opt => {
     // Registered member → link the trichter to their account;
@@ -222,23 +261,33 @@ function attachSaveHandlers(memberOptions, eventId) {
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
 
-    const { error } = await supabase.from('trichters').insert({
+    const { data: inserted, error } = await supabase.from('trichters').insert({
       person_name: personName,
       person_user_id: personUserId,
       duration_ms: Math.round(_elapsed),
       logged_by: currentUser.id,
       event_id: _eventId,
-    });
-
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Save';
+    }).select('id').single();
 
     if (error) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
       errEl.textContent = 'Failed to save. Please try again.';
       errEl.style.display = 'block';
       return;
     }
 
+    // Upload the attached photo (if any) — the trichter itself is saved
+    // either way; a failed upload only loses the picture.
+    if (pendingPhoto) {
+      saveBtn.textContent = 'Uploading photo…';
+      const { error: pErr } = await uploadTrichterPhoto(inserted.id, pendingPhoto);
+      if (pErr) toast(`Trichter saved, but the photo failed: ${pErr}`, 'error');
+    }
+    setPendingPhoto(null);
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
     resetForm();
     toast('Trichter saved! 🍻', 'success');
     await loadHistory({ eventId: _eventId, isParticipant: true });
@@ -288,10 +337,7 @@ async function loadHistory(ctx) {
         ${hasPhoto
           ? `<button data-view-photo="${t.trichter_photos[0].storage_path}" title="View photo"
                style="background:none; font-size:1.1rem; padding:0.2rem;">🖼️</button>`
-          : ctx.isParticipant
-            ? `<button data-add-photo="${t.id}" title="Add photo"
-                 style="background:none; font-size:1.1rem; padding:0.2rem; opacity:0.55;">📷</button>`
-            : ''}
+          : ''}
       </div>`;
   }).join('');
 
@@ -304,26 +350,6 @@ async function loadHistory(ctx) {
     });
   });
 
-  // Add photo (one per trichter)
-  $history.querySelectorAll('[data-add-photo]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.addEventListener('change', async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        btn.textContent = '⏳';
-        const existing = await getTrichterPhoto(btn.dataset.addPhoto);
-        if (existing) { toast('This trichter already has a photo'); await loadHistory(ctx); return; }
-        const { error } = await uploadTrichterPhoto(btn.dataset.addPhoto, file);
-        if (error) { toast(`Upload failed: ${error}`, 'error'); btn.textContent = '📷'; return; }
-        toast('Photo added 📸', 'success');
-        await loadHistory(ctx);
-      });
-      input.click();
-    });
-  });
 }
 
 export function openPhotoViewer(url) {

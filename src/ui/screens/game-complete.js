@@ -17,6 +17,7 @@ import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
 import { esc } from '../../format.js';
 import { getGamePhoto, uploadGamePhoto, photoUrl } from '../../photos.js';
+import { getEvent, eventOpen } from '../../events-data.js';
 import { openPhotoViewer } from './event-trichter.js';
 
 export default async function render($el, { id: gameId }) {
@@ -128,12 +129,13 @@ export default async function render($el, { id: gameId }) {
   document.getElementById('btn-board').addEventListener('click', () =>
     navigate(game.event_id ? `#/event/${game.event_id}/board` : '#/'));
 
-  await renderPhotoSlot(gameId, participants);
+  const { event } = game.event_id ? await getEvent(game.event_id) : { event: null };
+  await renderPhotoSlot(gameId, participants, eventOpen(event));
 }
 
 // ─── Game photo (one per game) ──────────────────────────────────────────────
 
-async function renderPhotoSlot(gameId, participants) {
+async function renderPhotoSlot(gameId, participants, open = true) {
   const $slot = document.getElementById('photo-slot');
   if (!$slot) return;
 
@@ -148,8 +150,9 @@ async function renderPhotoSlot(gameId, participants) {
   }
 
   const isParticipant = participants.some(p => p.user_id === currentUser?.id);
-  if (!isParticipant) {
-    $slot.innerHTML = '<p style="color:var(--text-faint); font-size:0.8rem;">No photo yet.</p>';
+  if (!isParticipant || !open) {
+    $slot.innerHTML = `<p style="color:var(--text-faint); font-size:0.8rem;">${
+      !isParticipant ? 'No photo yet.' : 'No photo — the event is closed, so none can be added anymore.'}</p>`;
     return;
   }
 
@@ -172,11 +175,12 @@ async function renderPhotoSlot(gameId, participants) {
         toast(error, 'error');
         btn.disabled = false;
         btn.textContent = '📷 Add the game photo';
-        if (error.includes('already has')) await renderPhotoSlot(gameId, participants);
+        if (error.includes('already has')) await renderPhotoSlot(gameId, participants, open);
         return;
       }
       toast('Photo added 📸', 'success');
-      await renderPhotoSlot(gameId, participants);
+      const { event } = game.event_id ? await getEvent(game.event_id) : { event: null };
+  await renderPhotoSlot(gameId, participants, eventOpen(event));
     });
     input.click();
   });

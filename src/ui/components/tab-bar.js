@@ -10,22 +10,26 @@
  * tabs when the user returns to the events list or their own profile.
  */
 
+import { currentUser } from '../../supabase.js';
+
 const ROOT_TABS = [
   { hash: '#/',        label: 'Events',  icon: '🎉', match: p => p === '/' || p.startsWith('/game') },
+  { hash: '#/past',    label: 'Past',    icon: '📦', match: p => p === '/past' },
   { hash: '#/profile', label: 'Profile', icon: '👤', match: p => p.startsWith('/profile') || p === '/people' || p === '/change-password' },
 ];
 
 // key = the sub-segment after /event/<id>/ ('' is the Play tab)
 const EVENT_TABS = [
   { key: '',         label: 'Play',     icon: '🎯' },
-  { key: 'board',    label: 'Board',    icon: '🏆' },
   { key: 'trichter', label: 'Trichter', icon: '⏱️' },
+  { key: 'board',    label: 'Board',    icon: '🏆' },
+  { key: 'profile',  label: 'Profile',  icon: '👤' },
   { key: 'gallery',  label: 'Gallery',  icon: '🖼️' },
   { key: 'history',  label: 'History',  icon: '🕘' },
 ];
 
 // Which sub-segments highlight which tab (deep pages inside an event)
-const SUB_ALIAS = { game: '', profile: 'board' };
+const SUB_ALIAS = { game: '' };
 
 const style = `
   <style id="tab-bar-style">
@@ -92,7 +96,9 @@ export function render($el) {
   if (ev) {
     const activeKey = ev.sub == null ? null : (SUB_ALIAS[ev.sub] ?? ev.sub);
     $el.innerHTML = EVENT_TABS.map(tab => {
-      const href = `#/event/${ev.eventId}${tab.key ? '/' + tab.key : ''}`;
+      const href = tab.key === 'profile'
+        ? `#/event/${ev.eventId}/profile/${currentUser?.id ?? ''}`
+        : `#/event/${ev.eventId}${tab.key ? '/' + tab.key : ''}`;
       const active = tab.key === activeKey ? ' active' : '';
       return `
         <a class="tab${active}" href="${href}" aria-label="${tab.label}">

@@ -17,8 +17,12 @@ export default async function render($el, ctx) {
 
   $el.innerHTML = `
     <div>
-      ${isParticipant
+      ${isParticipant && ctx.open
         ? `<button id="new-game-btn" class="btn btn-primary btn-block" style="margin-bottom:1rem;">+ New game</button>`
+        : ''}
+      ${isParticipant && !ctx.open
+        ? `<div class="card" style="margin-bottom:1rem; text-align:center; color:var(--text-faint); font-size:0.8rem;">
+             ${ctx.closedReason} — no new games can be started.</div>`
         : ''}
       <div id="games-list">
         <div class="empty-state"><p style="color:var(--text-faint);">Loading games…</p></div>

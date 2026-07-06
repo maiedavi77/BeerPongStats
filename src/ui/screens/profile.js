@@ -38,12 +38,24 @@ export default async function render($el, params) {
   const stats = computeStats(profileId, games, throws);
   const tStats = computeTrichterStats(trichters);
 
+  // Heatmaps: only this player's own throws, and strictly split by the
+  // game's cup count (a 6-cup game must not appear on the 10-cup heatmap
+  // and vice versa — positions overlap between the two layouts).
+  const heatFor = cupCount => {
+    const ids = new Set(games.filter(g => g.cup_count === cupCount).map(g => g.id));
+    return {
+      throws: throws.filter(t => ids.has(t.game_id) && t.thrower_user_id === profileId),
+      cups: cups.filter(c => ids.has(c.game_id)),
+    };
+  };
+  const heat6 = heatFor(6);
+  const heat10 = heatFor(10);
+
   $el.innerHTML = `
     <div>
       <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;">
         <button id="back-profile" class="btn-secondary" style="width:auto; padding:0.4rem 0.75rem; font-size:0.8rem;">←</button>
-        <h1 style="font-size:2rem; color:var(--purple);">PROFILE</h1>
-        ${eventId ? '<span style="font-size:0.7rem; color:var(--amber); background:var(--amber-dim); padding:0.25rem 0.6rem; border-radius:999px;">this event only</span>' : ''}
+        <h1 style="font-size:2rem; color:var(--purple);">${eventId ? 'EVENT PROFILE' : 'PROFILE'}</h1>
       </div>
 
       <!-- Avatar + name + edit -->
@@ -111,11 +123,11 @@ export default async function render($el, params) {
         <div style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:space-around; margin-top:0.5rem;">
           <div>
             <p style="font-size:0.7rem; color:var(--text-faint); margin-bottom:0.5rem; text-align:center;">6-cup</p>
-            <div>${renderHeatmap(throws, cups, 6)}</div>
+            <div>${renderHeatmap(heat6.throws, heat6.cups, 6)}</div>
           </div>
           <div>
             <p style="font-size:0.7rem; color:var(--text-faint); margin-bottom:0.5rem; text-align:center;">10-cup</p>
-            <div>${renderHeatmap(throws, cups, 10)}</div>
+            <div>${renderHeatmap(heat10.throws, heat10.cups, 10)}</div>
           </div>
         </div>
       </div>
