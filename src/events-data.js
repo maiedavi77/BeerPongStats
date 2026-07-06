@@ -69,7 +69,7 @@ export async function getEvent(eventId) {
 export async function eventMembers(eventId) {
   const { data, error } = await supabase
     .from('event_participants')
-    .select('user_id, role, profiles(id, display_name, is_active, avatar_path)')
+    .select('user_id, role, profiles!event_participants_user_id_fkey(id, display_name, is_active, avatar_path)')
     .eq('event_id', eventId);
   return { members: data ?? [], error: error?.message };
 }
