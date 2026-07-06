@@ -56,14 +56,6 @@ export default async function render($el, params) {
       <h1 style="font-size:2rem; color:var(--purple); margin-bottom:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
         ${esc(event.name)}
       </h1>
-      ${!isParticipant && !isAdmin ? '' : ''}
-      <div id="event-tabs" style="display:flex; gap:0.4rem; margin-bottom:1rem; overflow-x:auto; padding-bottom:2px;">
-        ${TABS.map(t => `
-          <a href="#/event/${eventId}${t.key ? '/' + t.key : ''}" class="pill${t.key === tab.key ? ' sel' : ''}"
-             style="flex:0 0 auto; padding:0.5rem 0.9rem; font-size:0.8rem; text-decoration:none;">
-            ${t.label}
-          </a>`).join('')}
-      </div>
       <div id="event-view"></div>
     </div>`;
 

@@ -1,16 +1,31 @@
 /**
  * src/ui/components/tab-bar.js
  *
- * Bottom navigation tab bar (v3): Events | Profile.
- * Event-scoped navigation happens inside the event screen itself.
+ * Context-aware bottom navigation (v3):
+ *  - Root context:   Events | Profile
+ *  - Event context:  Play | Board | Trichter | Gallery | History
+ *
+ * The bar switches to the event tabs whenever the route is inside an event
+ * (/event/:id…, including new-game and event profiles) and back to the root
+ * tabs when the user returns to the events list or their own profile.
  */
 
-import { currentUser } from '../../supabase.js';
-
-const TABS = [
-  { hash: '#/',        label: 'Events',  icon: '🎉', match: p => p === '/' || p.startsWith('/event') || p.startsWith('/game') },
+const ROOT_TABS = [
+  { hash: '#/',        label: 'Events',  icon: '🎉', match: p => p === '/' || p.startsWith('/game') },
   { hash: '#/profile', label: 'Profile', icon: '👤', match: p => p.startsWith('/profile') || p === '/people' || p === '/change-password' },
 ];
+
+// key = the sub-segment after /event/<id>/ ('' is the Play tab)
+const EVENT_TABS = [
+  { key: '',         label: 'Play',     icon: '🎯' },
+  { key: 'board',    label: 'Board',    icon: '🏆' },
+  { key: 'trichter', label: 'Trichter', icon: '⏱️' },
+  { key: 'gallery',  label: 'Gallery',  icon: '🖼️' },
+  { key: 'history',  label: 'History',  icon: '🕘' },
+];
+
+// Which sub-segments highlight which tab (deep pages inside an event)
+const SUB_ALIAS = { game: '', profile: 'board' };
 
 const style = `
   <style id="tab-bar-style">
@@ -32,20 +47,28 @@ const style = `
       justify-content: center;
       gap: 2px;
       color: var(--text-faint);
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       font-weight: 500;
       cursor: pointer;
       text-decoration: none;
       transition: color 0.15s;
       -webkit-tap-highlight-color: transparent;
+      min-width: 0;
     }
     .tab.active { color: var(--purple); }
     .tab:hover:not(.active) { color: var(--text-dim); }
-    .tab-icon { font-size: 1.25rem; line-height: 1; }
+    .tab-icon { font-size: 1.2rem; line-height: 1; }
   </style>`;
 
+/** Parse the current hash into { eventId, sub } when inside an event. */
+function eventContext(path) {
+  const m = /^\/event\/([^/]+)(?:\/([^/]+))?/.exec(path);
+  if (!m) return null;
+  return { eventId: m[1], sub: m[2] ?? '' };
+}
+
 /**
- * Render the tab bar.
+ * Render the tab bar for the current route.
  * @param {HTMLElement} $el - the #tab-bar <nav> element
  */
 export function render($el) {
@@ -54,8 +77,33 @@ export function render($el) {
   }
 
   const currentPath = (window.location.hash.slice(1) || '/').split('?')[0];
+  let ev = eventContext(currentPath);
 
-  $el.innerHTML = TABS.map(tab => {
+  if (ev) {
+    // Remember for /game/* routes, which carry no event id in the URL
+    try { sessionStorage.setItem('racked_last_event', ev.eventId); } catch { /* private mode */ }
+  } else if (currentPath.startsWith('/game/')) {
+    // Live game / game recap: stay in the event context the user came from
+    let last = null;
+    try { last = sessionStorage.getItem('racked_last_event'); } catch { /* private mode */ }
+    if (last) ev = { eventId: last, sub: null };
+  }
+
+  if (ev) {
+    const activeKey = ev.sub == null ? null : (SUB_ALIAS[ev.sub] ?? ev.sub);
+    $el.innerHTML = EVENT_TABS.map(tab => {
+      const href = `#/event/${ev.eventId}${tab.key ? '/' + tab.key : ''}`;
+      const active = tab.key === activeKey ? ' active' : '';
+      return `
+        <a class="tab${active}" href="${href}" aria-label="${tab.label}">
+          <span class="tab-icon" aria-hidden="true">${tab.icon}</span>
+          <span>${tab.label}</span>
+        </a>`;
+    }).join('');
+    return;
+  }
+
+  $el.innerHTML = ROOT_TABS.map(tab => {
     const active = tab.match(currentPath) ? ' active' : '';
     return `
       <a class="tab${active}" href="${tab.hash}" aria-label="${tab.label}">
