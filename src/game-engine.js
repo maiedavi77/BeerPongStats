@@ -66,18 +66,40 @@ export function lineSlotCode(cupCount, coord) {
 
 const MAX_UNDO = 25;
 
+// ─── Participant identity ───────────────────────────────────────────────────
+// A thrower is addressed by a KEY so registered users and event guests
+// (event_temp_users) are handled uniformly:
+//   'u:<user_id>'       registered player
+//   't:<temp_user_id>'  guest (no account)
+
+/** Key for a game_participants row. */
+export function participantKey(p) {
+  return p.participant_type === 'temp' ? `t:${p.temp_user_id}` : `u:${p.user_id}`;
+}
+
+/** Split a key back into DB throw columns. */
+export function keyToThrowFields(key) {
+  if (key?.startsWith('t:')) {
+    return { thrower_type: 'temp', thrower_user_id: null, thrower_temp_id: key.slice(2) };
+  }
+  return { thrower_type: 'user', thrower_user_id: key?.slice(2) ?? null, thrower_temp_id: null };
+}
+
 // ─── State construction & DB replay ─────────────────────────────────────────
 
 /** Normalize a DB throw row into the in-memory shape. */
 function normalizeThrow(row) {
   const isDodge = row.outcome === 'dodge';
+  const thrower = row.thrower_type === 'temp'
+    ? (row.thrower_temp_id ? `t:${row.thrower_temp_id}` : null)
+    : (row.thrower_user_id ? `u:${row.thrower_user_id}` : null);
   return {
-    sequence_no:     row.sequence_no,
-    team:            row.throwing_team,
-    outcome:         isDodge ? 'hit' : row.outcome,   // 'hit' | 'miss' | 'airball'
+    sequence_no: row.sequence_no,
+    team:        row.throwing_team,
+    outcome:     isDodge ? 'hit' : row.outcome,   // 'hit' | 'miss' | 'airball'
     isDodge,
-    thrower_user_id: row.thrower_user_id ?? null,
-    cup_id:          row.throw_cups?.[0]?.cup_id ?? row.cup_id ?? null,
+    thrower,
+    cup_id:      row.throw_cups?.[0]?.cup_id ?? row.cup_id ?? null,
   };
 }
 
@@ -101,6 +123,13 @@ function other(team) { return team === 'A' ? 'B' : 'A'; }
 export function buildGameState(gameRow, cups, participants, throws = [], reRacks = [], opts = {}) {
   const byPos = (a, b) => a.rack_position - b.rack_position;
   const byOrder = (a, b) => (a.throw_order ?? 0) - (b.throw_order ?? 0);
+  const withIdentity = p => ({
+    ...p,
+    key:  participantKey(p),
+    name: p.participant_type === 'temp'
+      ? (p.event_temp_users?.display_name ?? 'Guest')
+      : (p.profiles?.display_name ?? '?'),
+  });
 
   const g = {
     id:       gameRow.id,
@@ -113,8 +142,8 @@ export function buildGameState(gameRow, cups, participants, throws = [], reRacks
       B: cups.filter(c => c.team === 'B').sort(byPos),
     },
     participants: {
-      A: participants.filter(p => p.team === 'A').sort(byOrder),
-      B: participants.filter(p => p.team === 'B').sort(byOrder),
+      A: participants.filter(p => p.team === 'A').sort(byOrder).map(withIdentity),
+      B: participants.filter(p => p.team === 'B').sort(byOrder).map(withIdentity),
     },
 
     throwingTeam: opts.firstTeam ?? 'A',
@@ -208,7 +237,7 @@ export function setThrower(g, userId) {
 export function autoSelectThrower(g) {
   const roster = g.participants[g.throwingTeam] ?? [];
   if (roster.length === 1) {
-    g.selectedThrower = roster[0].user_id;
+    g.selectedThrower = roster[0].key;
     g.throwerIsSuggestion = false;
     return;
   }
@@ -225,9 +254,9 @@ function pairUp(arr) {
 
 /** Ported verbatim from v1.052 (names → user ids). */
 export function suggestNextThrower(g, team) {
-  const roster = (g.participants[team] ?? []).map(p => p.user_id);
+  const roster = (g.participants[team] ?? []).map(p => p.key);
   if (roster.length < 2) return null;
-  const throws = g.allThrows.filter(t => t.team === team).map(t => t.thrower_user_id);
+  const throws = g.allThrows.filter(t => t.team === team).map(t => t.thrower);
 
   if (throws.length % 2 === 1) {
     // Mid-pair: who throws ball 2?
@@ -278,11 +307,11 @@ export function logThrow(g, outcome, cupId, isDodge = false) {
   snapshot(g);
 
   const t = {
-    team:            g.throwingTeam,
+    team:    g.throwingTeam,
     outcome,
-    isDodge:         outcome === 'hit' ? !!isDodge : false,
-    cup_id:          outcome === 'hit' ? cupId : null,
-    thrower_user_id: g.selectedThrower,
+    isDodge: outcome === 'hit' ? !!isDodge : false,
+    cup_id:  outcome === 'hit' ? cupId : null,
+    thrower: g.selectedThrower,
   };
   g.pendingPair.throws.push(t);
   g.allThrows.push(t);
@@ -325,12 +354,11 @@ function resolvePair(g) {
   // Build the persistence plan (throw rows written as a pair, v1 model)
   const seqBase = g.persistedThrowCount;
   const throwRows = [t1, t2].map((t, i) => ({
-    sequence_no:     seqBase + i,
-    throwing_team:   t.team,
-    outcome:         t.isDodge ? 'dodge' : t.outcome,
-    thrower_type:    'user',
-    thrower_user_id: t.thrower_user_id,
-    cup_id:          t.cup_id,        // consumed by the sync layer for throw_cups
+    sequence_no:   seqBase + i,
+    throwing_team: t.team,
+    outcome:       t.isDodge ? 'dodge' : t.outcome,
+    ...keyToThrowFields(t.thrower),
+    cup_id:        t.cup_id,          // consumed by the sync layer for throw_cups
   }));
   g.persistedThrowCount += 2;
 
@@ -477,7 +505,7 @@ export function cupsTaken(g, team) {
   return g.cupCount - standingCups(g, other(team));
 }
 
-export function participantName(g, userId) {
+export function participantName(g, key) {
   const all = [...g.participants.A, ...g.participants.B];
-  return all.find(p => p.user_id === userId)?.profiles?.display_name ?? '?';
+  return all.find(p => p.key === key)?.name ?? '?';
 }

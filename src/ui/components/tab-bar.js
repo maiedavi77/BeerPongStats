@@ -1,16 +1,15 @@
 /**
  * src/ui/components/tab-bar.js
  *
- * Bottom navigation tab bar. Renders into the #tab-bar <nav> element.
- * Admin-only "People" tab is hidden for non-admins.
+ * Bottom navigation tab bar (v3): Events | Profile.
+ * Event-scoped navigation happens inside the event screen itself.
  */
 
+import { currentUser } from '../../supabase.js';
+
 const TABS = [
-  { hash: '#/', label: 'Play',     icon: '🎯',  pattern: '/' },
-  { hash: '#/board', label: 'Board',   icon: '🏆',  pattern: '/board' },
-  { hash: '#/trichter', label: 'Trichter', icon: '⏱️', pattern: '/trichter' },
-  { hash: '#/history', label: 'History', icon: '🕒', pattern: '/history' },
-  { hash: '#/people', label: 'People',  icon: '👥',  pattern: '/people', adminOnly: true },
+  { hash: '#/',        label: 'Events',  icon: '🎉', match: p => p === '/' || p.startsWith('/event') || p.startsWith('/game') },
+  { hash: '#/profile', label: 'Profile', icon: '👤', match: p => p.startsWith('/profile') || p === '/people' || p === '/change-password' },
 ];
 
 const style = `
@@ -48,19 +47,16 @@ const style = `
 /**
  * Render the tab bar.
  * @param {HTMLElement} $el - the #tab-bar <nav> element
- * @param {{ is_admin: boolean }} user
  */
-export function render($el, user) {
-  // Inject styles once
+export function render($el) {
   if (!document.getElementById('tab-bar-style')) {
     document.head.insertAdjacentHTML('beforeend', style);
   }
 
   const currentPath = (window.location.hash.slice(1) || '/').split('?')[0];
 
-  const tabs = TABS.filter(t => !t.adminOnly || user?.is_admin);
-  $el.innerHTML = tabs.map(tab => {
-    const active = currentPath === tab.pattern ? ' active' : '';
+  $el.innerHTML = TABS.map(tab => {
+    const active = tab.match(currentPath) ? ' active' : '';
     return `
       <a class="tab${active}" href="${tab.hash}" aria-label="${tab.label}">
         <span class="tab-icon" aria-hidden="true">${tab.icon}</span>

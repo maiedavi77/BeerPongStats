@@ -2,21 +2,32 @@
  * src/ui/screens/profile.js
  *
  * Player stats screen + cup-position heatmap.
- * Current user can edit their display_name.
+ *
+ * Routes:
+ *   /profile                       own profile, OVERALL stats + settings
+ *   /profile/:id                   any player, OVERALL stats
+ *   /event/:eventId/profile/:id    any player, stats WITHIN that event only
+ *
+ * The current user can edit their display_name; the own root profile also
+ * links to change-password, People (admin) and log out.
  */
 
 import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
 import { renderHeatmap } from '../components/heatmap.js';
-import { formatDuration } from './trichter.js';
+import { formatDuration } from '../../format.js';
+import { logout } from '../../auth.js';
+import { avatarHtml, uploadAvatar } from '../../photos.js';
 
-export default async function render($el, { id: profileId }) {
-  if (!profileId) { navigate('#/board'); return; }
+export default async function render($el, params) {
+  const profileId = params.id ?? currentUser?.id;
+  const eventId = params.eventId ?? null;
+  if (!profileId) { navigate('#/login'); return; }
 
   $el.innerHTML = `<div class="empty-state"><p style="color:var(--text-faint);">Loading profile…</p></div>`;
 
-  const { profile, games, throws, cups, trichters, error } = await loadProfile(profileId);
+  const { profile, games, throws, cups, trichters, error } = await loadProfile(profileId, eventId);
 
   if (error || !profile) {
     $el.innerHTML = `<div class="empty-state"><p style="color:var(--red);">Profile not found.</p></div>`;
@@ -32,14 +43,21 @@ export default async function render($el, { id: profileId }) {
       <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;">
         <button id="back-profile" class="btn-secondary" style="width:auto; padding:0.4rem 0.75rem; font-size:0.8rem;">←</button>
         <h1 style="font-size:2rem; color:var(--purple);">PROFILE</h1>
+        ${eventId ? '<span style="font-size:0.7rem; color:var(--amber); background:var(--amber-dim); padding:0.25rem 0.6rem; border-radius:999px;">this event only</span>' : ''}
       </div>
 
-      <!-- Name + edit -->
+      <!-- Avatar + name + edit -->
       <div class="card" style="margin-bottom:1rem;">
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <div>
-            <div id="display-name" style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem;">${profile.display_name}</div>
-            <div style="color:var(--text-faint); font-size:0.75rem;">${profile.email ?? ''}</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.9rem;">
+          <div style="display:flex; align-items:center; gap:0.9rem; min-width:0;">
+            <div class="profile-avatar-wrap" id="avatar-wrap">
+              ${avatarHtml(profile.display_name, profile.avatar_path)}
+              ${isOwnProfile ? '<span class="avatar-edit-badge" id="avatar-edit" title="Change picture">📷</span>' : ''}
+            </div>
+            <div style="min-width:0;">
+              <div id="display-name" style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${profile.display_name}</div>
+              <div style="color:var(--text-faint); font-size:0.75rem;">${profile.email ?? ''}</div>
+            </div>
           </div>
           ${isOwnProfile ? '<button id="edit-name-btn" class="btn-secondary" style="width:auto; padding:0.35rem 0.7rem; font-size:0.75rem;">Edit</button>' : ''}
         </div>
@@ -101,9 +119,49 @@ export default async function render($el, { id: profileId }) {
           </div>
         </div>
       </div>
+
+      ${isOwnProfile && !eventId ? `
+      <!-- Account -->
+      <div class="card" style="margin-bottom:1rem;">
+        <span class="label">Account</span>
+        <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+          <button id="pf-change-pwd" class="btn btn-ghost btn-block">🔑 Change password</button>
+          ${currentUser?.is_admin ? '<button id="pf-people" class="btn btn-ghost btn-block">👥 Manage people</button>' : ''}
+          <button id="pf-logout" class="btn btn-danger-ghost btn-block">Log out</button>
+        </div>
+      </div>` : ''}
     </div>`;
 
   document.getElementById('back-profile').addEventListener('click', () => history.back());
+
+  // Change profile picture (own profile)
+  document.getElementById('avatar-edit')?.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const badge = document.getElementById('avatar-edit');
+      badge.textContent = '⏳';
+      const { path, error } = await uploadAvatar(file);
+      if (error) { toast(`Upload failed: ${error}`, 'error'); badge.textContent = '📷'; return; }
+      // Swap the picture in place
+      const wrap = document.getElementById('avatar-wrap');
+      wrap.querySelector('.avatar, .avatar-fallback')?.remove();
+      wrap.insertAdjacentHTML('afterbegin', avatarHtml(profile.display_name, path));
+      badge.textContent = '📷';
+      toast('Profile picture updated', 'success');
+    });
+    input.click();
+  });
+
+  document.getElementById('pf-change-pwd')?.addEventListener('click', () => navigate('#/change-password'));
+  document.getElementById('pf-people')?.addEventListener('click', () => navigate('#/people'));
+  document.getElementById('pf-logout')?.addEventListener('click', async () => {
+    await logout();
+    navigate('#/login');
+  });
 
   if (isOwnProfile) {
     const editBtn = document.getElementById('edit-name-btn');
@@ -165,13 +223,19 @@ function computeStats(userId, games, throws) {
   };
 }
 
-async function loadProfile(userId) {
+async function loadProfile(userId, eventId = null) {
+  let gamesQuery = supabase.from('games')
+    .select('id, winner_team, cup_count, game_participants(team, user_id)')
+    .eq('status', 'complete');
+  if (eventId) gamesQuery = gamesQuery.eq('event_id', eventId);
+
+  let trichterQuery = supabase.from('trichters').select('duration_ms').eq('person_user_id', userId);
+  if (eventId) trichterQuery = trichterQuery.eq('event_id', eventId);
+
   const [profileRes, gamesRes, trichterRes] = await Promise.all([
-    supabase.from('profiles').select('id, email, display_name').eq('id', userId).single(),
-    supabase.from('games')
-      .select('id, winner_team, cup_count, game_participants(team, user_id)')
-      .eq('status', 'complete'),
-    supabase.from('trichters').select('duration_ms').eq('person_user_id', userId),
+    supabase.from('profiles').select('id, email, display_name, avatar_path').eq('id', userId).single(),
+    gamesQuery,
+    trichterQuery,
   ]);
 
   // Filter games this user participated in

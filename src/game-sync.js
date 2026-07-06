@@ -29,7 +29,7 @@ export async function loadGameData(gameId) {
     supabase.from('games').select('*').eq('id', gameId).single(),
     supabase.from('cups').select('*').eq('game_id', gameId),
     supabase.from('game_participants')
-      .select('*, profiles(display_name)')
+      .select('*, profiles(display_name, avatar_path), event_temp_users(display_name)')
       .eq('game_id', gameId),
     supabase.from('throws')
       .select('*, throw_cups(cup_id)')
@@ -82,6 +82,7 @@ export async function writePair(gameId, plan) {
       sequence_no:     r.sequence_no,
       thrower_type:    r.thrower_type,
       thrower_user_id: r.thrower_user_id,
+      thrower_temp_id: r.thrower_temp_id ?? null,
       throwing_team:   r.throwing_team,
       outcome:         r.outcome,
       logged_by:       loggedBy,

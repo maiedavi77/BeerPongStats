@@ -409,6 +409,36 @@
       color: var(--text-dim); cursor: pointer; font-weight: 600; font-size: 13.5px;
     }
     .pill.sel { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+
+    /* ─── Avatars ─────────────────────────────────────────── */
+    .avatar {
+      border-radius: 50%; object-fit: cover; flex: none;
+      background: var(--surface-3); display: inline-block;
+    }
+    .avatar-fallback {
+      border-radius: 50%; flex: none; display: inline-flex;
+      align-items: center; justify-content: center;
+      background: var(--surface-3); color: var(--text-dim);
+      font-weight: 700; text-transform: uppercase;
+    }
+    .chip .avatar, .chip .avatar-fallback {
+      width: 20px; height: 20px; font-size: 10px; margin-right: 2px;
+    }
+    .chip { display: inline-flex; align-items: center; gap: 6px; }
+    .profile-avatar-wrap { position: relative; width: 72px; height: 72px; flex: none; }
+    .profile-avatar-wrap .avatar, .profile-avatar-wrap .avatar-fallback {
+      width: 72px; height: 72px; font-size: 26px;
+    }
+    .avatar-edit-badge {
+      position: absolute; right: -4px; bottom: -4px;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--amber); color: #241405; border: 2px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; cursor: pointer;
+    }
+    .picker-row-avatar .avatar, .picker-row-avatar .avatar-fallback {
+      width: 26px; height: 26px; font-size: 11px;
+    }
   </style>
 </head>
 <body>

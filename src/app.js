@@ -16,18 +16,22 @@ import { currentUser, onUserChange } from './supabase.js';
 // HTML into #screen and attaches event listeners.
 
 const SCREENS = [
-  { pattern: '/login',             auth: false, import: () => import('./ui/screens/login.js') },
-  { pattern: '/auth/callback',     auth: false, import: () => import('./ui/screens/auth-callback.js') },
-  { pattern: '/change-password',   auth: true,  import: () => import('./ui/screens/change-password.js') },
-  { pattern: '/',                  auth: true,  import: () => import('./ui/screens/home.js') },
-  { pattern: '/game/new',          auth: true,  import: () => import('./ui/screens/new-game.js') },
-  { pattern: '/game/:id/complete', auth: true,  import: () => import('./ui/screens/game-complete.js') },
-  { pattern: '/game/:id',          auth: true,  import: () => import('./ui/screens/live-game.js') },
-  { pattern: '/board',             auth: true,  import: () => import('./ui/screens/leaderboard.js') },
-  { pattern: '/profile/:id',       auth: true,  import: () => import('./ui/screens/profile.js') },
-  { pattern: '/trichter',          auth: true,  import: () => import('./ui/screens/trichter.js') },
-  { pattern: '/history',           auth: true,  import: () => import('./ui/screens/history.js') },
-  { pattern: '/people',            auth: true,  admin: true, import: () => import('./ui/screens/people.js') },
+  { pattern: '/login',                     auth: false, import: () => import('./ui/screens/login.js') },
+  { pattern: '/auth/callback',             auth: false, import: () => import('./ui/screens/auth-callback.js') },
+  { pattern: '/change-password',           auth: true,  import: () => import('./ui/screens/change-password.js') },
+  { pattern: '/',                          auth: true,  import: () => import('./ui/screens/events.js') },
+  { pattern: '/event/:eventId',            auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/board',      auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/trichter',   auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/gallery',    auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/history',    auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/game/new',   auth: true,  import: () => import('./ui/screens/new-game.js') },
+  { pattern: '/event/:eventId/profile/:id', auth: true, import: () => import('./ui/screens/profile.js') },
+  { pattern: '/game/:id/complete',         auth: true,  import: () => import('./ui/screens/game-complete.js') },
+  { pattern: '/game/:id',                  auth: true,  import: () => import('./ui/screens/live-game.js') },
+  { pattern: '/profile',                   auth: true,  import: () => import('./ui/screens/profile.js') },
+  { pattern: '/profile/:id',               auth: true,  import: () => import('./ui/screens/profile.js') },
+  { pattern: '/people',                    auth: true,  admin: true, import: () => import('./ui/screens/people.js') },
 ];
 
 const $screen = document.getElementById('screen');
@@ -95,7 +99,7 @@ async function render(route) {
 
   try {
     const mod = await matchedScreen.import();
-    const params = { ...pathParams, ...route.params };
+    const params = { ...pathParams, ...route.params, _path: route.path };
     teardown = await mod.default($screen, params) ?? null;
   } catch (err) {
     console.error('[app] screen render error:', err);
@@ -116,7 +120,7 @@ function updateTabBar() {
   const $tabBar = document.getElementById('tab-bar');
   if (!currentUser || !$tabBar) return;
   // Tab bar module is loaded lazily to avoid circular deps
-  import('./ui/components/tab-bar.js').then(m => m.render($tabBar, currentUser));
+  import('./ui/components/tab-bar.js').then(m => m.render($tabBar));
 }
 
 // ─── Boot ───────────────────────────────────────────────────────────────────

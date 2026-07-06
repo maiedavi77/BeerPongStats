@@ -19,6 +19,7 @@ import { supabase, currentUser } from '../../supabase.js';
 import { navigate }              from '../../router.js';
 import { toast }                 from '../components/toast.js';
 import { renderRack }            from '../components/cup-rack.js';
+import { avatarHtml }            from '../../photos.js';
 import { openRerackSheet, hasFormations } from '../components/rerack-sheet.js';
 import { subscribeGame }         from '../../realtime.js';
 import {
@@ -34,6 +35,7 @@ import {
 // ─── Module state ────────────────────────────────────────────────────────────
 let _g             = null;
 let _gameId        = null;
+let _eventId       = null;
 let _unsub         = null;
 let _isParticipant = false;
 let _busy          = false;
@@ -117,11 +119,12 @@ async function rebuildState() {
   _g = buildGameState(gameRow, cups, participants, throws, reRacks, {
     firstTeam: recallFirstTeam(_gameId),
   });
+  _eventId = gameRow.event_id ?? null;
   _isParticipant = participants.some(p => p.user_id === currentUser?.id);
 
   // Rebuild the feed from throw history (newest first)
   _feed = [..._g.allThrows].reverse().map(t => ({
-    text: `🏐 ${participantName(_g, t.thrower_user_id)} — ${throwText(t)}`,
+    text: `🏐 ${participantName(_g, t.thrower)} — ${throwText(t)}`,
     ts: Date.now(),
   }));
   return true;
@@ -163,7 +166,7 @@ function renderGameView($el) {
 
   let html = `
     <div class="live-header">
-      <button class="back-link" id="back-to-play">‹ All games</button>
+      <button class="back-link" id="back-to-play">‹ Event</button>
       ${isActive ? `<span class="step-pill">${stepLabel(g)}</span>` : ''}
     </div>`;
 
@@ -187,7 +190,7 @@ function renderGameView($el) {
 
   if (isActive && g.phase === 'throw2' && g.pendingPair.throws.length > 0) {
     const t1 = g.pendingPair.throws[0];
-    html += `<div class="recap">🏐 <b>Ball 1:</b> ${esc(participantName(g, t1.thrower_user_id))} — ${throwText(t1)}</div>`;
+    html += `<div class="recap">🏐 <b>Ball 1:</b> ${esc(participantName(g, t1.thrower))} — ${throwText(t1)}</div>`;
   }
 
   if (isActive && g.phase === 'bonus') {
@@ -229,8 +232,8 @@ function renderGameView($el) {
       <div class="ctl-label">who threw this ball — ${esc(teamLabel(g.throwingTeam))}</div>
       <div class="chips">
         ${roster.map(p => `
-          <div class="chip${g.selectedThrower === p.user_id ? ' active' : ''}" data-thrower="${esc(p.user_id)}">
-            ${esc(p.profiles?.display_name ?? '?')}
+          <div class="chip${g.selectedThrower === p.key ? ' active' : ''}" data-thrower="${esc(p.key)}">
+            ${avatarHtml(p.name, p.profiles?.avatar_path)}${esc(p.name)}${p.participant_type === 'temp' ? '<span class="temp-tag">guest</span>' : ''}
           </div>`).join('')}
       </div>
       ${g.throwerIsSuggestion && g.selectedThrower
@@ -277,7 +280,8 @@ function renderGameView($el) {
 function attachHandlers($el) {
   const g = _g;
 
-  $el.querySelector('#back-to-play')?.addEventListener('click', () => navigate('#/'));
+  $el.querySelector('#back-to-play')?.addEventListener('click', () =>
+    navigate(_eventId ? `#/event/${_eventId}` : '#/'));
 
   $el.querySelectorAll('.chip[data-thrower]').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -320,7 +324,7 @@ function attachHandlers($el) {
     confirmSheet('Cancel this game? It won\u2019t count toward stats.', true, async () => {
       const { error } = await writeGameStatus(_gameId, 'cancelled');
       if (error) { toast(`Could not cancel: ${error}`, 'error'); return; }
-      navigate('#/');
+      navigate(_eventId ? `#/event/${_eventId}` : '#/');
     });
   });
 
@@ -368,7 +372,7 @@ async function handleThrow($el, outcome, cupId) {
   }
 
   const last = g.allThrows[g.allThrows.length - 1];
-  feed(`🏐 ${participantName(g, last.thrower_user_id)} — ${throwText(last)}`);
+  feed(`🏐 ${participantName(g, last.thrower)} — ${throwText(last)}`);
 
   if (result.resolved) {
     const removed = result.persist.hitCupIds.length;

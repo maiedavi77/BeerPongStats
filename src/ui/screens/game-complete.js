@@ -12,9 +12,12 @@
  * Params: { id: gameId }
  */
 
-import { supabase } from '../../supabase.js';
+import { supabase, currentUser } from '../../supabase.js';
 import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
+import { esc } from '../../format.js';
+import { getGamePhoto, uploadGamePhoto, photoUrl } from '../../photos.js';
+import { openPhotoViewer } from './event-trichter.js';
 
 export default async function render($el, { id: gameId }) {
   if (!gameId) { navigate('#/'); return; }
@@ -50,7 +53,7 @@ export default async function render($el, { id: gameId }) {
         </div>
         <div style="color:var(--text-dim); font-size:0.9rem; margin-top:0.25rem;">
           ${teamA.filter(p => p.team === winner).concat(teamB.filter(p => p.team === winner))
-              .map(p => p.name).join(' & ') || (winner === 'A' ? teamA : teamB).map(p => p.name).join(' & ')}
+              .map(p => esc(p.name)).join(' & ') || (winner === 'A' ? teamA : teamB).map(p => esc(p.name)).join(' & ')}
         </div>
       </div>
 
@@ -71,7 +74,7 @@ export default async function render($el, { id: gameId }) {
             ${[...teamA, ...teamB].map(p => `
               <tr style="border-top:1px solid var(--surface-3);">
                 <td style="padding:0.4rem 0; color:${p.team === winner ? winnerColor : 'var(--text)'};">
-                  ${p.name}
+                  ${esc(p.name)}
                   ${p.team === winner ? ' 🏆' : ''}
                 </td>
                 <td style="text-align:center; color:${teamColor(p.team)}; font-size:0.75rem;">
@@ -105,24 +108,89 @@ export default async function render($el, { id: gameId }) {
         </div>
       </div>
 
+      <!-- Game photo (one per game, after it finished) -->
+      <div class="card" id="photo-card" style="margin-bottom:1rem;">
+        <span class="label">Game photo</span>
+        <div id="photo-slot" style="margin-top:0.5rem;">
+          <p style="color:var(--text-faint); font-size:0.8rem;">Loading…</p>
+        </div>
+      </div>
+
       <!-- Actions -->
       <div style="display:flex; flex-direction:column; gap:0.5rem;">
-        <button id="btn-home" class="btn-primary">Back to games</button>
-        <button id="btn-board" class="btn-secondary">View leaderboard</button>
+        <button id="btn-home" class="btn-primary">Back to event</button>
+        <button id="btn-board" class="btn-secondary">View event board</button>
       </div>
     </div>`;
 
-  document.getElementById('btn-home').addEventListener('click', () => navigate('#/'));
-  document.getElementById('btn-board').addEventListener('click', () => navigate('#/board'));
+  const eventHash = game.event_id ? `#/event/${game.event_id}` : '#/';
+  document.getElementById('btn-home').addEventListener('click', () => navigate(eventHash));
+  document.getElementById('btn-board').addEventListener('click', () =>
+    navigate(game.event_id ? `#/event/${game.event_id}/board` : '#/'));
+
+  await renderPhotoSlot(gameId, participants);
+}
+
+// ─── Game photo (one per game) ──────────────────────────────────────────────
+
+async function renderPhotoSlot(gameId, participants) {
+  const $slot = document.getElementById('photo-slot');
+  if (!$slot) return;
+
+  const existing = await getGamePhoto(gameId);
+  if (existing) {
+    const url = await photoUrl(existing.storage_path);
+    $slot.innerHTML = url
+      ? `<img id="game-photo-img" src="${url}" alt="game photo" style="width:100%; border-radius:12px; border:1px solid var(--line); cursor:pointer;" />`
+      : '<p style="color:var(--text-faint); font-size:0.8rem;">Photo could not be loaded.</p>';
+    document.getElementById('game-photo-img')?.addEventListener('click', () => openPhotoViewer(url));
+    return;
+  }
+
+  const isParticipant = participants.some(p => p.user_id === currentUser?.id);
+  if (!isParticipant) {
+    $slot.innerHTML = '<p style="color:var(--text-faint); font-size:0.8rem;">No photo yet.</p>';
+    return;
+  }
+
+  $slot.innerHTML = `
+    <button id="add-photo-btn" class="btn btn-ghost btn-block">📷 Add the game photo</button>
+    <p style="color:var(--text-faint); font-size:0.7rem; margin-top:0.4rem;">One photo per game — first upload wins.</p>`;
+
+  document.getElementById('add-photo-btn').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const btn = document.getElementById('add-photo-btn');
+      btn.disabled = true;
+      btn.textContent = 'Uploading…';
+      const { error } = await uploadGamePhoto(gameId, file);
+      if (error) {
+        toast(error, 'error');
+        btn.disabled = false;
+        btn.textContent = '📷 Add the game photo';
+        if (error.includes('already has')) await renderPhotoSlot(gameId, participants);
+        return;
+      }
+      toast('Photo added 📸', 'success');
+      await renderPhotoSlot(gameId, participants);
+    });
+    input.click();
+  });
 }
 
 // ─── Data loading ──────────────────────────────────────────────────────────
 
 async function loadGameResult(gameId) {
   const [gameRes, participantsRes, throwsRes] = await Promise.all([
-    supabase.from('games').select('id, cup_count, winner_team, started_at, ended_at').eq('id', gameId).single(),
-    supabase.from('game_participants').select('team, user_id, profiles(display_name)').eq('game_id', gameId),
-    supabase.from('throws').select('thrower_user_id, throwing_team, outcome').eq('game_id', gameId),
+    supabase.from('games').select('id, event_id, cup_count, winner_team, started_at, ended_at').eq('id', gameId).single(),
+    supabase.from('game_participants')
+      .select('team, participant_type, user_id, temp_user_id, profiles(display_name), event_temp_users(display_name)')
+      .eq('game_id', gameId),
+    supabase.from('throws').select('thrower_type, thrower_user_id, thrower_temp_id, throwing_team, outcome').eq('game_id', gameId),
   ]);
 
   const error = gameRes.error?.message ?? participantsRes.error?.message ?? throwsRes.error?.message;
@@ -138,10 +206,15 @@ async function loadGameResult(gameId) {
 
 function buildPlayerStats(participants, throws) {
   return participants.map(p => {
-    const myThrows = throws.filter(t => t.thrower_user_id === p.user_id);
+    const isGuest = p.participant_type === 'temp';
+    const myThrows = throws.filter(t => isGuest
+      ? t.thrower_temp_id === p.temp_user_id
+      : t.thrower_user_id === p.user_id);
     const hits = myThrows.filter(t => t.outcome === 'hit' || t.outcome === 'dodge').length;
     return {
-      name: p.profiles?.display_name ?? 'Unknown',
+      name: isGuest
+        ? `${p.event_temp_users?.display_name ?? 'Guest'} *`
+        : (p.profiles?.display_name ?? 'Unknown'),
       team: p.team,
       throws: myThrows.length,
       hits,
