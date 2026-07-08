@@ -10,6 +10,7 @@
 
 import { onRouteChange, currentRoute, navigate, matchPath } from './router.js';
 import { currentUser, onUserChange } from './supabase.js';
+import { SIGNUP_ENABLED } from './config.js';
 
 // ─── Screen registry ────────────────────────────────────────────────────────
 // Each screen module exports a default render(params) function that writes
@@ -62,6 +63,13 @@ async function render(route) {
   if (!matchedScreen) {
     // Unknown route → home or login
     navigate(currentUser ? '#/' : '#/login');
+    return;
+  }
+
+  // Signup guard: when self-service signup is disabled, the #/signup route
+  // is not reachable via forced browsing — send visitors to login.
+  if (matchedScreen.pattern === '/signup' && !SIGNUP_ENABLED) {
+    navigate('#/login');
     return;
   }
 

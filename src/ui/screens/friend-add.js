@@ -20,7 +20,7 @@ export default async function render($el, params) {
   if (currentUser?.username && username.toLowerCase() === currentUser.username.toLowerCase()) {
     $el.innerHTML = `<div class="empty-state"><h2>That's your own link 😄</h2>
       <p style="color:var(--text-faint);">Share it with others so they can add you.</p>
-      <button class="btn btn-ghost" onclick="location.hash='#/profile'">‹ My profile</button></div>`;
+      <a class="btn btn-ghost" href="#/profile">‹ My profile</a></div>`;
     return;
   }
 
@@ -30,7 +30,7 @@ export default async function render($el, params) {
   if (error || !friend) {
     $el.innerHTML = `<div class="empty-state"><h2>Could not add friend</h2>
       <p style="color:var(--text-faint);">${esc(error ?? 'Unknown error')}</p>
-      <button class="btn btn-ghost" onclick="location.hash='#/'">‹ Home</button></div>`;
+      <a class="btn btn-ghost" href="#/">‹ Home</a></div>`;
     return;
   }
 

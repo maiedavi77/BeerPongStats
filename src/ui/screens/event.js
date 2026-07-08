@@ -44,7 +44,7 @@ export default async function render($el, params) {
     $el.innerHTML = `<div class="empty-state">
       <h2>Event not available</h2>
       <p style="color:var(--text-faint);">You may not be a member of this event.</p>
-      <button class="btn btn-ghost" onclick="location.hash='#/'">‹ All events</button>
+      <a class="btn btn-ghost" href="#/">‹ All events</a>
     </div>`;
     return;
   }

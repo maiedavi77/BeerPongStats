@@ -2,6 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+
+  <!--
+    Content-Security-Policy (GitHub Pages can't send HTTP headers, so this
+    meta tag is the enforcement point). script-src is locked to the origins
+    we actually load code from and deliberately omits 'unsafe-inline', so an
+    injected <script>/onerror payload cannot execute or exfiltrate the
+    Supabase session token. style-src allows 'unsafe-inline' because the UI
+    relies on inline style="" attributes throughout (style injection is far
+    lower risk than script injection). connect-src is limited to the Supabase
+    REST + realtime (wss) host. frame-ancestors 'none' blocks clickjacking in
+    supporting browsers.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://esm.sh https://challenges.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: blob: https://oxrxctztriezuonduteg.supabase.co;
+    connect-src 'self' https://esm.sh https://oxrxctztriezuonduteg.supabase.co wss://oxrxctztriezuonduteg.supabase.co;
+    frame-src https://challenges.cloudflare.com;
+    worker-src 'self' blob:;
+    frame-ancestors 'none';
+    base-uri 'self';
+    form-action 'self';
+    object-src 'none';
+  " />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#17111F" />
   <meta name="description" content="Real-time beer pong tracker" />
@@ -17,13 +43,11 @@
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap"
     rel="stylesheet"
   />
-  <!-- JetBrains Mono (non-critical, used for sequence numbers) — load async -->
+  <!-- JetBrains Mono (used for sequence numbers) -->
   <link
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap"
-    rel="preload" as="style"
-    onload="this.onload=null;this.rel='stylesheet'"
+    rel="stylesheet"
   />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" /></noscript>
 
   <!-- Cloudflare Turnstile widget script -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -82,6 +106,7 @@
 
     a { color: var(--blue); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    a.btn, a.btn:hover, a.tab, a.tab:hover { text-decoration: none; }
 
     button {
       cursor: pointer;

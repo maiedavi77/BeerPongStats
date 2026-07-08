@@ -14,8 +14,15 @@
 import { supabase } from '../../supabase.js';
 import { usernameAvailable, USERNAME_RE } from '../../friends-data.js';
 import { navigate } from '../../router.js';
+import { SIGNUP_ENABLED } from '../../config.js';
 
 export default async function render($el) {
+  if (!SIGNUP_ENABLED) {
+    $el.innerHTML = `<div class="empty-state screen-narrow"><h2>Invite only</h2>
+      <p style="color:var(--text-faint); margin:0.5rem 0 1rem;">Public registration isn't open yet. Ask an event organizer for an invite.</p>
+      <a class="btn btn-ghost" href="#/login">‹ Back to login</a></div>`;
+    return;
+  }
   $el.innerHTML = `
     <div class="screen-narrow" style="max-width:400px; margin:2rem auto; padding:0 1rem;">
       <h1 style="font-family:'Bebas Neue',sans-serif; font-size:3rem; color:var(--purple); text-align:center; margin-bottom:0.25rem;">RACKED</h1>

@@ -84,12 +84,12 @@ export default async function render($el, params) {
               ${isOwnProfile ? '<span class="avatar-edit-badge" id="avatar-edit" title="Change picture">📷</span>' : ''}
             </div>
             <div style="min-width:0;">
-              <div id="display-name" style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${profile.display_name}</div>
+              <div id="display-name" style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(profile.display_name)}</div>
               <div style="color:var(--text-dim); font-size:0.78rem;">
                 ${profile.username ? '@' + esc(profile.username) : (isOwnProfile ? '<span style="color:var(--amber);">no username yet</span>' : '')}
                 ${isOwnProfile ? '<button id="uname-edit" title="Change username" style="background:none; padding:0 0.2rem; font-size:0.75rem;">✏️</button>' : ''}
               </div>
-              <div style="color:var(--text-faint); font-size:0.75rem;">${isOwnProfile ? (profile.email ?? '') : ''}</div>
+              <div style="color:var(--text-faint); font-size:0.75rem;">${isOwnProfile ? esc(profile.email ?? '') : ''}</div>
               ${isOwnProfile && !eventId ? `
               <div style="margin-top:0.3rem;">
                 <span style="font-size:0.65rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
@@ -104,7 +104,7 @@ export default async function render($el, params) {
           ${isOwnProfile ? '<button id="edit-name-btn" class="btn-secondary" style="width:auto; padding:0.35rem 0.7rem; font-size:0.75rem;">Edit</button>' : ''}
         </div>
         <div id="edit-name-form" style="display:none; margin-top:0.75rem;">
-          <input type="text" id="name-input" value="${profile.display_name}" maxlength="30" style="margin-bottom:0.5rem;" />
+          <input type="text" id="name-input" value="${esc(profile.display_name)}" maxlength="30" style="margin-bottom:0.5rem;" />
           <div style="display:flex; gap:0.5rem;">
             <button id="save-name-btn" class="btn-primary" style="flex:1;">Save</button>
             <button id="cancel-name-btn" class="btn-secondary" style="flex:1;">Cancel</button>

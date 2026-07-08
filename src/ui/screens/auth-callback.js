@@ -12,6 +12,7 @@
 
 import { handleAuthCallback } from '../../auth.js';
 import { navigate } from '../../router.js';
+import { esc } from '../../format.js';
 
 export default async function render($el) {
   $el.innerHTML = `
@@ -30,9 +31,9 @@ export default async function render($el) {
     $el.innerHTML = `
       <div class="empty-state" style="padding-top:4rem;">
         <h2 style="color:var(--red);">Login failed</h2>
-        <p style="margin-top:0.5rem; color:var(--text-dim);">${err.message ?? 'Could not verify your session.'}</p>
-        <button class="btn-secondary" style="margin-top:1.5rem; width:auto; padding:0.5rem 1.25rem;"
-          onclick="window.location.hash='#/login'">Back to login</button>
+        <p style="margin-top:0.5rem; color:var(--text-dim);">${esc(err.message ?? 'Could not verify your session.')}</p>
+        <a class="btn-secondary" style="margin-top:1.5rem; width:auto; padding:0.5rem 1.25rem; display:inline-block;"
+          href="#/login">Back to login</a>
       </div>`;
   }
 }

@@ -13,6 +13,7 @@
 
 import { login } from '../../auth.js';
 import { navigate, currentRoute } from '../../router.js';
+import { SIGNUP_ENABLED } from '../../config.js';
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAADsPq9_Bj1iuMmGX';
 
@@ -67,12 +68,11 @@ export default function render($el) {
       </div>
 
       <p style="text-align:center; margin-top:1.5rem;">
-        <!-- Signup is fully wired (#/signup) but not open yet — flip the
-             disabled attribute (and enable email signups in Supabase) to
-             launch public registration. -->
-        <button id="signup-btn" class="btn btn-ghost" disabled
-          title="Public registration is coming soon"
-          style="opacity:0.45; cursor:not-allowed;">Create account (coming soon)</button>
+        ${SIGNUP_ENABLED
+          ? '<a id="signup-btn" class="btn btn-ghost" href="#/signup">Create account</a>'
+          : `<button id="signup-btn" class="btn btn-ghost" disabled
+              title="Public registration is coming soon"
+              style="opacity:0.45; cursor:not-allowed;">Create account (coming soon)</button>`}
       </p>
     </div>`;
 

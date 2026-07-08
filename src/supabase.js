@@ -2,7 +2,11 @@
  * src/supabase.js
  *
  * Supabase client initialisation using the new sb_publishable_... key format.
- * Config is injected at CI build time into src/config.js (gitignored).
+ * The publishable (anon) key and project URL are safe to ship in the client
+ * — they are protected by Row Level Security, not by secrecy. This file is
+ * committed on purpose. NEVER put the service_role key (or any secret) here:
+ * it bypasses RLS and would grant full database access to anyone who loads
+ * the site. Secrets belong only in Edge Function environment variables.
  *
  * Exports:
  *   supabase      — the Supabase JS client instance

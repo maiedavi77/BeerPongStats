@@ -9,6 +9,7 @@
 import { supabase, currentUser } from '../../supabase.js';
 import { grantCredit } from '../../events-data.js';
 import { toast } from '../components/toast.js';
+import { esc } from '../../format.js';
 
 const FUNCTIONS_URL = 'https://oxrxctztriezuonduteg.supabase.co/functions/v1';
 
@@ -171,11 +172,11 @@ function renderUserRow(user) {
     <div class="card" style="margin-bottom:0.5rem; display:flex; align-items:center; gap:0.75rem;">
       <div style="flex:1; min-width:0;">
         <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-          <span style="font-weight:500;">${user.display_name}</span>
+          <span style="font-weight:500;">${esc(user.display_name)}</span>
           ${user.is_admin ? '<span style="font-size:0.65rem; background:var(--purple); color:#fff; padding:0.1rem 0.4rem; border-radius:4px;">ADMIN</span>' : ''}
           ${isSelf ? '<span style="font-size:0.65rem; background:var(--surface-3); color:var(--text-faint); padding:0.1rem 0.4rem; border-radius:4px;">YOU</span>' : ''}
         </div>
-        <div style="font-size:0.72rem; color:var(--text-faint); margin-top:0.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.email}</div>
+        <div style="font-size:0.72rem; color:var(--text-faint); margin-top:0.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(user.email)}</div>
       </div>
       <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;">
         <button class="credit-btn" data-uid="${user.id}" title="Grant a one-time event credit"
