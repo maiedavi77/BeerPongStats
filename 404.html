@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>RACKED — redirecting…</title>
+  <script>
+    // GitHub Pages SPA fallback: any path not matching a real file lands
+    // here (404). We convert it to a hash route and redirect to index.html.
+    // This is needed because QR scanners and share-sheet links use real
+    // paths (e.g. /BeerPongStats/friend/user) that GitHub Pages can't
+    // serve — but the hash-router in index.html can handle them.
+    var repo = '/BeerPongStats';  // ← your GitHub Pages subpath
+    var path = window.location.pathname;
+    if (path.startsWith(repo)) path = path.slice(repo.length);
+    if (path && path !== '/') {
+      window.location.replace(
+        window.location.origin + repo + '/#' + path +
+        (window.location.search || '')
+      );
+    } else {
+      window.location.replace(window.location.origin + repo + '/');
+    }
+  </script>
+</head>
+<body></body>
+</html>

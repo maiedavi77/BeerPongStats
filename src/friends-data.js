@@ -97,8 +97,11 @@ export async function setMyUsername(username) {
 // ─── Friend link + QR ───────────────────────────────────────────────────────
 
 export function friendLink(username) {
-  const base = window.location.href.split('#')[0];
-  return `${base}#/friend/${encodeURIComponent(username)}`;
+  // Use a real path (no #) so QR scanners and share sheets pass the full
+  // URL through. GitHub Pages' 404.html converts it back to the hash route.
+  const origin = window.location.origin;
+  const repo = window.location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
+  return `${origin}${repo}/friend/${encodeURIComponent(username)}`;
 }
 
 /** Share the link via the Web Share API (WhatsApp/AirDrop/…), clipboard fallback. */
