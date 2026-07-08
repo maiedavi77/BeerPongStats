@@ -17,6 +17,7 @@ import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
 import { renderHeatmap } from '../components/heatmap.js';
 import { formatDuration } from '../../format.js';
+import { esc } from '../../format.js';
 import { logout } from '../../auth.js';
 import { avatarHtml, uploadAvatar } from '../../photos.js';
 import { TIER_LABEL, hasAdvancedStats, getEvent } from '../../events-data.js';
