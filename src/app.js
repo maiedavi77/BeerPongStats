@@ -88,9 +88,10 @@ async function render(route) {
     return;
   }
 
-  // If logged in and trying to view login, redirect to home
-  if (route.path === '/login' && currentUser && !currentUser.must_change_password) {
-    navigate('#/');
+  // If logged in and trying to view login/signup, redirect to ?next= or home
+  if ((route.path === '/login' || route.path === '/signup') && currentUser && !currentUser.must_change_password) {
+    const dest = route.params.next ? decodeURIComponent(route.params.next) : '#/';
+    navigate(dest);
     return;
   }
 

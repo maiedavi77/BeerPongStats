@@ -182,6 +182,11 @@ export default function render($el) {
     }
 
     // Proceed with login (token is passed directly to Supabase Auth)
+    // Stash the redirect target BEFORE the async call — onAuthStateChange
+    // may re-render the router (and lose the query string) before we return.
+    const { params: loginParams } = currentRoute();
+    const nextDest = loginParams.next ? decodeURIComponent(loginParams.next) : null;
+
     loginBtn.textContent = 'Signing in…';
     const { error } = await login(email, password, token);
 
@@ -192,14 +197,11 @@ export default function render($el) {
       return;
     }
 
-    // On success: onAuthStateChange fires → app.js re-renders → router redirects.
+    // On success: onAuthStateChange fires → app.js re-renders → router
+    // picks up ?next= from the hash and redirects. This navigate is a
+    // belt-and-suspenders fallback.
     loginBtn.textContent = 'Sign in';
     loginBtn.disabled = false;
-
-    // Handle ?next= redirect
-    const { params } = currentRoute();
-    if (params.next) {
-      navigate(decodeURIComponent(params.next));
-    }
+    if (nextDest) navigate(nextDest);
   });
 }
