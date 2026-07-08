@@ -66,8 +66,13 @@ export default function render($el) {
         </form>
       </div>
 
-      <p style="text-align:center; margin-top:1.5rem; color:var(--text-faint); font-size:0.8rem;">
-        Don't have an account? Ask your admin to invite you.
+      <p style="text-align:center; margin-top:1.5rem;">
+        <!-- Signup is fully wired (#/signup) but not open yet — flip the
+             disabled attribute (and enable email signups in Supabase) to
+             launch public registration. -->
+        <button id="signup-btn" class="btn btn-ghost" disabled
+          title="Public registration is coming soon"
+          style="opacity:0.45; cursor:not-allowed;">Create account (coming soon)</button>
       </p>
     </div>`;
 

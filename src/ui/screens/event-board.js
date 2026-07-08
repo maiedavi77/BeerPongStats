@@ -15,6 +15,7 @@ import { navigate } from '../../router.js';
 import { toast } from '../components/toast.js';
 import { formatDuration, esc } from '../../format.js';
 import { avatarHtml } from '../../photos.js';
+import { hasAdvancedStats, canExportCsv } from '../../events-data.js';
 
 const SCORE_WEIGHTS = { winRate: 0.40, accuracy: 0.25, activity: 0.15, tCount: 0.10, tSpeed: 0.10 };
 
@@ -44,20 +45,41 @@ let _players = [];
 let _trichterRows = [];
 let _overall = [];
 let _eventId = null;
+let _advanced = true;
+let _eventName = '';
 
 export default async function render($el, ctx) {
   _eventId = ctx.eventId;
+  _eventName = ctx.event?.name ?? 'event';
+  // Advanced stats (accuracy/cups/dodges + RACKED score) are governed by
+  // the EVENT's tier — everyone in a pro/one-time event gets them.
+  _advanced = hasAdvancedStats(ctx.event);
+
+  let views = ctx.event?.trichter_enabled === false
+    ? VIEWS.filter(v => v.key !== 'trichter')
+    : VIEWS;
+  if (!_advanced) views = views.filter(v => v.key !== 'overall');
+  if (_view === 'trichter' && ctx.event?.trichter_enabled === false) _view = 'games';
+  if (_view === 'overall' && !_advanced) _view = 'games';
 
   $el.innerHTML = `
     <div>
       <div id="view-tabs" style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
-        ${VIEWS.map(v => `
+        ${views.map(v => `
           <button class="view-tab" data-view="${v.key}" style="
             flex:1; padding:0.5rem; border-radius:10px; font-size:0.85rem; font-weight:600;
             border:none; cursor:pointer;">${v.label}</button>`).join('')}
       </div>
       <div id="sort-chips" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;"></div>
+      ${!_advanced ? `
+      <div style="font-size:0.7rem; color:var(--text-faint); margin:-0.5rem 0 0.75rem;">
+        🔒 Accuracy, cups, dodges and the RACKED score are Pro features —
+        this event runs on the Free tier.
+      </div>` : ''}
       <div id="board-list"><div class="empty-state"><p style="color:var(--text-faint);">Loading…</p></div></div>
+      <button id="csv-export" class="btn btn-ghost btn-block" style="margin-top:0.75rem; font-size:0.8rem;">
+        ${canExportCsv() ? '⬇️ Export board as CSV' : '🔒 CSV export (Pro)'}
+      </button>
       <div id="score-info" style="display:none; margin-top:1rem; font-size:0.72rem; color:var(--text-faint); line-height:1.6;" class="card">
         <b style="color:var(--text-dim);">RACKED Score</b> = 1000 × (0.40·win rate + 0.25·accuracy +
         0.15·activity + 0.10·trichter count + 0.10·trichter speed) — all within this event.
@@ -71,6 +93,56 @@ export default async function render($el, ctx) {
 
   await loadData(ctx.eventId);
   renderView();
+
+  document.getElementById('csv-export')?.addEventListener('click', () => {
+    if (!canExportCsv()) {
+      toast('CSV export is a Pro feature — ask an admin to upgrade your tier', 'error');
+      return;
+    }
+    exportCsv();
+  });
+}
+
+// ─── CSV export (Pro) ────────────────────────────────────────────────────────
+
+function exportCsv() {
+  const trichterByUid = new Map(_trichterRows.filter(t => t.userId).map(t => [t.userId, t]));
+  const scoreByUid = new Map(_overall.map(p => [p.userId, p.score]));
+  const q = v => {
+    const x = String(v ?? '');
+    return /[",\n;]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x;
+  };
+
+  const header = ['name', 'guest', 'games', 'wins', 'losses', 'win_pct',
+    'throws', 'hits', 'accuracy_pct', 'cups', 'dodges',
+    'trichter_count', 'trichter_best_ms', 'trichter_avg_ms', 'racked_score'];
+  const lines = [header.join(',')];
+
+  for (const p of [..._players].sort((a, b) => b.winPct - a.winPct)) {
+    const t = p.userId ? trichterByUid.get(p.userId) : null;
+    lines.push([
+      q(p.name), p.isGuest ? 1 : 0, p.games, p.wins, p.losses, p.winPct,
+      p.throwsTotal, p.hits, p.accuracy, p.cups, p.dodges,
+      t?.count ?? 0, Number.isFinite(t?.best) ? t.best : '', t?.avg ?? '',
+      p.userId ? (scoreByUid.get(p.userId) ?? '') : '',
+    ].join(','));
+  }
+  // Trichter-only people (guests who never threw)
+  for (const t of _trichterRows) {
+    const known = t.userId
+      ? _players.some(p => p.userId === t.userId)
+      : _players.some(p => p.isGuest && p.name?.toLowerCase() === (t.name ?? '').toLowerCase());
+    if (known) continue;
+    lines.push([q(t.name), t.userId ? 0 : 1, 0, 0, 0, '', 0, 0, '', 0, 0,
+      t.count, Number.isFinite(t.best) ? t.best : '', t.avg, ''].join(','));
+  }
+
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `racked-${_eventName.replace(/[^\w-]+/g, '_').toLowerCase()}-board.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ─── Data ───────────────────────────────────────────────────────────────────
@@ -208,7 +280,11 @@ function renderView() {
   if ($info) $info.style.display = _view === 'overall' ? 'block' : 'none';
   if (!$chips) return;
 
-  const sorts = _view === 'games' ? GAME_SORTS : _view === 'trichter' ? TRICHTER_SORTS : [];
+  let sorts = _view === 'games' ? GAME_SORTS : _view === 'trichter' ? TRICHTER_SORTS : [];
+  if (_view === 'games' && !_advanced) {
+    sorts = sorts.filter(o => o.key === 'winPct' || o.key === 'wins');
+    if (!['winPct', 'wins'].includes(_gameSort)) _gameSort = 'winPct';
+  }
   const activeSort = _view === 'games' ? _gameSort : _trichterSort;
 
   $chips.innerHTML = sorts.map(o => `
@@ -264,7 +340,7 @@ function renderGamesList() {
         ${avatarHtml(p.name, p.avatar)}
         <div style="min-width:0;">
           <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(p.name)}${p.isGuest ? guestTag : ''}</div>
-          <div style="font-size:0.72rem; color:var(--text-faint);">${p.wins}W · ${p.losses}L · ${p.accuracy}% acc</div>
+          <div style="font-size:0.72rem; color:var(--text-faint);">${p.wins}W · ${p.losses}L${_advanced ? ` · ${p.accuracy}% acc` : ''}</div>
         </div>
       </div>`,
     _gameSort === 'winPct' ? `${p.winPct}%` : _gameSort === 'accuracy' ? `${p.accuracy}%` : p[_gameSort],

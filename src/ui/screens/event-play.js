@@ -15,12 +15,18 @@ let channel = null;
 export default async function render($el, ctx) {
   const { eventId, isParticipant } = ctx;
 
+  const isTournament = !!ctx.event?.is_tournament;
+
   $el.innerHTML = `
     <div>
-      ${isParticipant && ctx.open
+      ${isTournament
+        ? `<div class="card" style="margin-bottom:1rem; text-align:center; color:var(--text-faint); font-size:0.8rem;">
+             🏆 Tournament event — games start from the <a href="#/event/${eventId}/bracket" style="color:var(--purple);">Bracket</a>.</div>`
+        : ''}
+      ${!isTournament && isParticipant && ctx.open
         ? `<button id="new-game-btn" class="btn btn-primary btn-block" style="margin-bottom:1rem;">+ New game</button>`
         : ''}
-      ${isParticipant && !ctx.open
+      ${!isTournament && isParticipant && !ctx.open
         ? `<div class="card" style="margin-bottom:1rem; text-align:center; color:var(--text-faint); font-size:0.8rem;">
              ${ctx.closedReason} — no new games can be started.</div>`
         : ''}

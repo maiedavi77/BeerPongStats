@@ -22,7 +22,9 @@ const ROOT_TABS = [
 const EVENT_TABS = [
   { key: '',         label: 'Play',     icon: '🎯' },
   { key: 'trichter', label: 'Trichter', icon: '⏱️' },
-  { key: 'board',    label: 'Board',    icon: '🏆' },
+  { key: 'teams',    label: 'Teams',    icon: '👥' },
+  { key: 'bracket',  label: 'Bracket',  icon: '🏆' },
+  { key: 'board',    label: 'Board',    icon: '📊' },
   { key: 'profile',  label: 'Profile',  icon: '👤' },
   { key: 'gallery',  label: 'Gallery',  icon: '🖼️' },
   { key: 'history',  label: 'History',  icon: '🕘' },
@@ -94,8 +96,21 @@ export function render($el) {
   }
 
   if (ev) {
+    let trichterOn = true;
+    let tournament = false;
+    try {
+      trichterOn = sessionStorage.getItem('racked_event_trichter') !== '0';
+      tournament = sessionStorage.getItem('racked_event_tournament') === '1';
+    } catch { /* private mode */ }
+    // Tournament events: Play · Teams · Bracket · Board · Profile · Gallery · History
+    // Standard events:   Play · Trichter · Board · Profile · Gallery · History
+    const tabs = EVENT_TABS.filter(t => {
+      if (t.key === 'trichter') return trichterOn && !tournament;
+      if (t.key === 'teams' || t.key === 'bracket') return tournament;
+      return true;
+    });
     const activeKey = ev.sub == null ? null : (SUB_ALIAS[ev.sub] ?? ev.sub);
-    $el.innerHTML = EVENT_TABS.map(tab => {
+    $el.innerHTML = tabs.map(tab => {
       const href = tab.key === 'profile'
         ? `#/event/${ev.eventId}/profile/${currentUser?.id ?? ''}`
         : `#/event/${ev.eventId}${tab.key ? '/' + tab.key : ''}`;

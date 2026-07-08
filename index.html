@@ -299,6 +299,7 @@
       margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
     }
     .recap b { color: var(--text); }
+    .recap-empty { visibility: hidden; }
 
     /* ─── Pyramid zone (rack) ─────────────────────────────── */
     .pyramid-zone {
@@ -458,6 +459,7 @@
   <div id="toast-container" aria-live="polite"></div>
 
   <!-- Boot the app -->
+  <script src="./vendor/qrcode.js"></script>
   <script type="module" src="./src/app.js"></script>
 </body>
 </html>

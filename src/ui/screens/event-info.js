@@ -11,8 +11,9 @@
 
 import { supabase, currentUser } from '../../supabase.js';
 import { toast } from '../components/toast.js';
-import { eventMembers, addMembers, removeMember, setEventArchived, eventClosedReason } from '../../events-data.js';
+import { eventMembers, addMembers, removeMember, setMemberRole, setEventArchived, eventClosedReason, TIER_LABEL } from '../../events-data.js';
 import { esc, shortDate } from '../../format.js';
+import { myFriends, findUserByEmail, addFriendByUsername } from '../../friends-data.js';
 import { avatarHtml } from '../../photos.js';
 
 function fmtDateTime(iso) {
@@ -23,7 +24,7 @@ function fmtDateTime(iso) {
 }
 
 export default async function render($el, ctx) {
-  const { eventId, event, isAdmin } = ctx;
+  const { eventId, event, isAdmin, canManage } = ctx;
 
   const { members } = await eventMembers(eventId);
   const sorted = [...members].sort((a, b) =>
@@ -49,6 +50,9 @@ export default async function render($el, ctx) {
         ${event.description ? `<p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:0.6rem;">${esc(event.description)}</p>` : ''}
         <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.8;">
           <div>📅 ${timeframe}</div>
+          <div>⭐ ${TIER_LABEL[event.required_tier] ?? 'Free'} tier event · Trichter ${event.trichter_enabled === false ? 'disabled' : 'enabled'}</div>
+          ${event.is_tournament ? `<div>🏆 Tournament (single elimination) · Tracking: ${
+            ({ open: 'open', game_players: 'game players only', own_team: 'own team only', hosts: 'hosts only' })[event.tracking_mode] ?? event.tracking_mode}</div>` : ''}
           <div>${statusLine}</div>
           <div style="color:var(--text-faint); font-size:0.72rem;">Created ${shortDate(event.created_at)}</div>
         </div>
@@ -58,19 +62,23 @@ export default async function render($el, ctx) {
       <div class="card" style="margin-bottom:1rem;">
         <span class="label">Members (${sorted.length})</span>
         <div id="info-members" style="margin-top:0.5rem;"></div>
-        ${isAdmin ? `
+        ${canManage ? `
         <div class="field" style="margin-top:1rem;">
-          <label class="label">Add members</label>
-          <input type="text" id="info-filter" placeholder="Filter players…" autocomplete="off" />
+          <label class="label">Add members (your friends)</label>
+          <input type="text" id="info-filter" placeholder="Filter friends…" autocomplete="off" />
           <div id="info-candidates" style="max-height:200px; overflow-y:auto; margin-top:0.4rem;"></div>
+          <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+            <input type="email" id="info-email-add" placeholder="or exact@email.address" autocomplete="off" style="flex:1;" />
+            <button id="info-email-btn" class="btn btn-ghost" style="width:auto; padding:0.5rem 0.9rem;">Add</button>
+          </div>
           <button class="btn btn-primary btn-block" id="info-add" style="margin-top:0.5rem;">Add selected</button>
         </div>` : ''}
       </div>
 
-      ${isAdmin ? `
-      <!-- Admin: archive -->
+      ${canManage ? `
+      <!-- Manage: archive -->
       <div class="card">
-        <span class="label">Administration</span>
+        <span class="label">Management</span>
         <p style="font-size:0.75rem; color:var(--text-faint); margin:0.4rem 0 0.6rem;">
           ${event.archived_at
             ? 'Unarchiving moves the event back to the active list.'
@@ -81,6 +89,10 @@ export default async function render($el, ctx) {
         </button>
       </div>` : ''}
     </div>`;
+
+  // Which members are already friends of the viewer? (for ➕ buttons)
+  const { friends: myFriendsList } = await myFriends();
+  const friendIds = new Set(myFriendsList.map(f => f.id));
 
   // ─── Member list ────────────────────────────────────────────────────────
   const renderMembers = () => {
@@ -93,13 +105,41 @@ export default async function render($el, ctx) {
         ${avatarHtml(m.profiles?.display_name, m.profiles?.avatar_path)}
         <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
           ${esc(m.profiles?.display_name ?? '?')}
-          ${m.role !== 'participant' ? `<span style="font-size:0.65rem; color:var(--amber);"> ${m.role}</span>` : ''}
+          ${m.role === 'creator' ? '<span style="font-size:0.65rem; color:var(--amber);"> creator</span>' : ''}
           ${m.user_id === currentUser?.id ? ' <span style="font-size:0.65rem; color:var(--text-faint);">(you)</span>' : ''}
         </span>
-        ${isAdmin && m.role !== 'creator'
-          ? `<button data-rm="${m.user_id}" style="background:none; color:var(--text-faint); font-size:1rem;">✕</button>`
+        ${m.user_id !== currentUser?.id && !friendIds.has(m.user_id) && m.profiles?.username
+          ? `<button data-befriend="${esc(m.profiles.username)}" title="Add as friend"
+               style="background:none; color:var(--purple); font-size:0.95rem;">➕</button>`
+          : ''}
+        ${canManage && m.role !== 'creator'
+          ? `<select data-role="${m.user_id}" style="background:var(--surface-3); color:var(--text-dim); border:none; border-radius:6px; font-size:0.7rem; padding:0.2rem 0.3rem;">
+               ${['participant', 'game_host', 'co_creator'].map(r =>
+                 `<option value="${r}" ${m.role === r ? 'selected' : ''}>${r.replace('_', '-')}</option>`).join('')}
+             </select>
+             <button data-rm="${m.user_id}" style="background:none; color:var(--text-faint); font-size:1rem;">✕</button>`
           : ''}
       </div>`).join('');
+
+    $m.querySelectorAll('[data-befriend]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { friend, error } = await addFriendByUsername(btn.dataset.befriend);
+        if (error) { toast(error, 'error'); return; }
+        friendIds.add(friend.id);
+        toast(`You're now friends with ${friend.display_name} 🎉`, 'success');
+        renderMembers();
+      });
+    });
+
+    $m.querySelectorAll('[data-role]').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const { error } = await setMemberRole(eventId, sel.dataset.role, sel.value);
+        if (error) { toast(`Could not change role: ${error}`, 'error'); return; }
+        const m = sorted.find(x => x.user_id === sel.dataset.role);
+        if (m) m.role = sel.value;
+        toast('Role updated', 'success');
+      });
+    });
 
     $m.querySelectorAll('[data-rm]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -116,13 +156,11 @@ export default async function render($el, ctx) {
   renderMembers();
 
   // ─── Admin: add members ─────────────────────────────────────────────────
-  if (!isAdmin) return;
+  if (!canManage) return;
 
-  const { data: allUsers } = await supabase
-    .from('profiles')
-    .select('id, display_name, avatar_path')
-    .eq('is_active', true)
-    .order('display_name');
+  // GDPR: candidates are the manager's FRIENDS; strangers via exact email.
+  const { friends } = await myFriends();
+  const allUsers = friends.map(f => ({ id: f.id, display_name: f.display_name, avatar_path: f.avatar_path }));
   const toAdd = new Set();
 
   const renderCandidates = (filter = '') => {
@@ -159,6 +197,23 @@ export default async function render($el, ctx) {
 
   document.getElementById('info-filter')?.addEventListener('input', e =>
     renderCandidates(e.target.value.trim()));
+
+  document.getElementById('info-email-btn')?.addEventListener('click', async () => {
+    const email = document.getElementById('info-email-add').value.trim();
+    if (!email) return;
+    const { user, error } = await findUserByEmail(email);
+    if (error) { toast(error, 'error'); return; }
+    if (!user) { toast('No player with this email address', 'error'); return; }
+    if (sorted.some(m => m.user_id === user.id)) { toast('Already a member'); return; }
+    if (!allUsers.some(u => u.id === user.id)) {
+      allUsers.push({ id: user.id, display_name: user.display_name, avatar_path: user.avatar_path });
+      allUsers.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    }
+    toAdd.add(user.id);
+    document.getElementById('info-email-add').value = '';
+    renderCandidates(document.getElementById('info-filter')?.value.trim() ?? '');
+    toast(`${user.display_name} selected — press "Add selected"`, 'success');
+  });
 
   document.getElementById('info-add')?.addEventListener('click', async () => {
     if (!toAdd.size) return;

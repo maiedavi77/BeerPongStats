@@ -7,6 +7,7 @@
  */
 
 import { supabase, currentUser } from '../../supabase.js';
+import { grantCredit } from '../../events-data.js';
 import { toast } from '../components/toast.js';
 
 const FUNCTIONS_URL = 'https://oxrxctztriezuonduteg.supabase.co/functions/v1';
@@ -105,7 +106,7 @@ async function loadUsers() {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, display_name, is_admin, is_active, created_at')
+    .select('id, email, display_name, is_admin, is_active, created_at, tier')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -124,6 +125,37 @@ async function loadUsers() {
   // Attach toggle handlers
   $list.querySelectorAll('.toggle-active-btn').forEach(btn => {
     btn.addEventListener('click', () => handleToggle(btn));
+  });
+
+  // One-time credit grants (Stripe will insert these rows later)
+  $list.querySelectorAll('.credit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const { error } = await grantCredit(btn.dataset.uid);
+      btn.disabled = false;
+      if (error) { toast(`Could not grant credit: ${error}`, 'error'); return; }
+      toast('One-time credit granted ⚡', 'success');
+    });
+  });
+
+  // Tier assignment ("machinery first": admins set tiers manually until
+  // payments exist). Downgrading a user deactivates any of their events
+  // that require the higher tier.
+  $list.querySelectorAll('.tier-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const prev = sel.dataset.prev ?? sel.querySelector('[selected]')?.value ?? 'free';
+      const { error } = await supabase
+        .from('profiles')
+        .update({ tier: sel.value })
+        .eq('id', sel.dataset.uid);
+      if (error) {
+        toast(`Could not change tier: ${error.message}`, 'error');
+        sel.value = prev;
+        return;
+      }
+      sel.dataset.prev = sel.value;
+      toast(`Tier set to ${sel.value}`, 'success');
+    });
   });
 }
 
@@ -146,6 +178,13 @@ function renderUserRow(user) {
         <div style="font-size:0.72rem; color:var(--text-faint); margin-top:0.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.email}</div>
       </div>
       <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;">
+        <button class="credit-btn" data-uid="${user.id}" title="Grant a one-time event credit"
+          style="width:auto; padding:0.25rem 0.45rem; font-size:0.72rem; border-radius:6px; border:none; cursor:pointer; background:var(--amber-dim); color:var(--amber);">+⚡</button>
+        <select class="tier-select" data-uid="${user.id}" title="Subscription tier"
+          style="background:var(--surface-3); color:var(--text-dim); border:none; border-radius:6px; font-size:0.72rem; padding:0.25rem 0.3rem;">
+          ${['free', 'pro', 'team'].map(t =>
+            `<option value="${t}" ${(user.tier ?? 'free') === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
         <span style="
           font-size:0.7rem; font-weight:500;
           color:${isActive ? 'var(--green)' : 'var(--red)'};

@@ -28,6 +28,12 @@ export default async function render($el, params) {
   }
 
   const { event } = await getEvent(eventId);
+  if (event?.is_tournament) {
+    $el.innerHTML = `<div class="empty-state"><h2>Tournament event</h2>
+      <p style="color:var(--text-faint);">Games are started from the bracket, not manually.</p>
+      <button class="btn btn-ghost" onclick="location.hash='#/event/${eventId}/bracket'">🏆 Open bracket</button></div>`;
+    return;
+  }
   if (!eventOpen(event)) {
     $el.innerHTML = `<div class="empty-state"><h2>Event closed</h2>
       <p style="color:var(--text-faint);">${eventClosedReason(event)} — no new games can be started.</p>

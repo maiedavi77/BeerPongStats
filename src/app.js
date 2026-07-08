@@ -17,6 +17,7 @@ import { currentUser, onUserChange } from './supabase.js';
 
 const SCREENS = [
   { pattern: '/login',                     auth: false, import: () => import('./ui/screens/login.js') },
+  { pattern: '/signup',                    auth: false, import: () => import('./ui/screens/signup.js') },
   { pattern: '/auth/callback',             auth: false, import: () => import('./ui/screens/auth-callback.js') },
   { pattern: '/change-password',           auth: true,  import: () => import('./ui/screens/change-password.js') },
   { pattern: '/',                          auth: true,  import: () => import('./ui/screens/events.js') },
@@ -24,6 +25,8 @@ const SCREENS = [
   { pattern: '/event/:eventId',            auth: true,  import: () => import('./ui/screens/event.js') },
   { pattern: '/event/:eventId/board',      auth: true,  import: () => import('./ui/screens/event.js') },
   { pattern: '/event/:eventId/info',       auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/teams',      auth: true,  import: () => import('./ui/screens/event.js') },
+  { pattern: '/event/:eventId/bracket',    auth: true,  import: () => import('./ui/screens/event.js') },
   { pattern: '/event/:eventId/trichter',   auth: true,  import: () => import('./ui/screens/event.js') },
   { pattern: '/event/:eventId/gallery',    auth: true,  import: () => import('./ui/screens/event.js') },
   { pattern: '/event/:eventId/history',    auth: true,  import: () => import('./ui/screens/event.js') },
@@ -31,6 +34,7 @@ const SCREENS = [
   { pattern: '/event/:eventId/profile/:id', auth: true, import: () => import('./ui/screens/profile.js') },
   { pattern: '/game/:id/complete',         auth: true,  import: () => import('./ui/screens/game-complete.js') },
   { pattern: '/game/:id',                  auth: true,  import: () => import('./ui/screens/live-game.js') },
+  { pattern: '/friend/:username',          auth: true,  import: () => import('./ui/screens/friend-add.js') },
   { pattern: '/profile',                   auth: true,  import: () => import('./ui/screens/profile.js') },
   { pattern: '/profile/:id',               auth: true,  import: () => import('./ui/screens/profile.js') },
   { pattern: '/people',                    auth: true,  admin: true, import: () => import('./ui/screens/people.js') },

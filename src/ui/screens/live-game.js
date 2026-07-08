@@ -20,6 +20,7 @@ import { navigate }              from '../../router.js';
 import { toast }                 from '../components/toast.js';
 import { renderRack }            from '../components/cup-rack.js';
 import { avatarHtml }            from '../../photos.js';
+import { getEvent, myEventRole } from '../../events-data.js';
 import { openRerackSheet, hasFormations } from '../components/rerack-sheet.js';
 import { subscribeGame }         from '../../realtime.js';
 import {
@@ -38,6 +39,10 @@ let _gameId        = null;
 let _eventId       = null;
 let _unsub         = null;
 let _isParticipant = false;
+let _trackingMode  = 'open';   // 'open' | 'game_players' | 'own_team' | 'hosts'
+let _isHost        = false;    // creator / co_creator / game_host / admin
+let _isEventMember = false;    // any event participant (for 'open')
+let _myGameTeam    = null;     // 'A' | 'B' | null (for 'own_team')
 let _busy          = false;
 let _dodgeArmed    = false;
 let _feed          = [];   // { text, ts } newest first
@@ -119,8 +124,19 @@ async function rebuildState() {
   _g = buildGameState(gameRow, cups, participants, throws, reRacks, {
     firstTeam: recallFirstTeam(_gameId),
   });
+  const eventChanged = _eventId !== (gameRow.event_id ?? null);
   _eventId = gameRow.event_id ?? null;
   _isParticipant = participants.some(p => p.user_id === currentUser?.id);
+  _myGameTeam = participants.find(p => p.user_id === currentUser?.id)?.team ?? null;
+
+  // Throw-tracking mode (server enforces via can_log_throw; this mirrors
+  // it in the UI). Loaded once per game.
+  if (eventChanged && _eventId) {
+    const [{ event }, role] = await Promise.all([getEvent(_eventId), myEventRole(_eventId)]);
+    _trackingMode = event?.tracking_mode ?? 'open';
+    _isHost = !!currentUser?.is_admin || ['creator', 'co_creator', 'game_host'].includes(role ?? '');
+    _isEventMember = role !== null || !!currentUser?.is_admin;
+  }
 
   // Rebuild the feed from throw history (newest first)
   _feed = [..._g.allThrows].reverse().map(t => ({
@@ -160,7 +176,16 @@ function renderGameView($el) {
 
   const tgt = g.throwingTeam === 'A' ? 'B' : 'A';
   const isActive = g.status === 'active';
-  const canControl = isActive && _isParticipant;
+  // Tracking modes (requirements doc): open → any event participant, any
+  // team; game_players → only players of THIS game; own_team → players log
+  // only for their own team; hosts → hosts only. Hosts bypass the first
+  // two player modes (guest-only sides could never be scored otherwise).
+  const modeAllows =
+    _trackingMode === 'hosts'        ? _isHost :
+    _trackingMode === 'game_players' ? (_isHost || _isParticipant) :
+    _trackingMode === 'own_team'     ? (_isHost || (_isParticipant && _myGameTeam === g.throwingTeam)) :
+    /* open */                         (_isEventMember || _isParticipant);
+  const canControl = isActive && modeAllows;
   const inThrow = g.phase === 'throw1' || g.phase === 'throw2';
   const connected = canControl && (inThrow || g.phase === 'bonus');
 
@@ -188,9 +213,14 @@ function renderGameView($el) {
     <span class="num B">${cupsTaken(g, 'B')}</span>
   </div>`;
 
+  // The recap slot ALWAYS renders while the game is active (empty on
+  // ball 1) so the cup rack below never jumps down when ball 1's result
+  // appears — the layout height stays constant between throws.
   if (isActive && g.phase === 'throw2' && g.pendingPair.throws.length > 0) {
     const t1 = g.pendingPair.throws[0];
     html += `<div class="recap">🏐 <b>Ball 1:</b> ${esc(participantName(g, t1.thrower))} — ${throwText(t1)}</div>`;
+  } else if (isActive && g.phase !== 'bonus') {
+    html += `<div class="recap recap-empty" aria-hidden="true">&nbsp;</div>`;
   }
 
   if (isActive && g.phase === 'bonus') {
@@ -212,7 +242,12 @@ function renderGameView($el) {
   }
 
   // Target rack
-  const spectatorHint = !_isParticipant && isActive ? ' · spectating' : '';
+  const spectatorHint = isActive && !canControl
+    ? (_trackingMode === 'hosts'        ? ' · only hosts can log throws'
+      : _trackingMode === 'game_players' ? ' · only game players can log throws'
+      : _trackingMode === 'own_team'     ? ' · only your team can log throws'
+      : ' · spectating')
+    : '';
   html += `<div class="pyramid-zone${connected ? ' connected' : ''}">
     <div class="pz-label">${isActive ? '<b>target</b> — ' : ''}${esc(teamLabel(tgt))}'s cups${spectatorHint}</div>
     <div class="rack-holder" id="rack-target">

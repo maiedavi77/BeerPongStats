@@ -65,7 +65,7 @@ async function hydrateProfile(authUser) {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, display_name, is_admin, must_change_password, avatar_path')
+      .select('id, email, display_name, username, is_admin, must_change_password, avatar_path, tier')
       .eq('id', authUser.id)
       .single();
 
