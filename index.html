@@ -267,10 +267,12 @@
       z-index: 40; display: flex; align-items: flex-end; justify-content: center;
     }
     .sheet {
-      background: var(--bg); width: 100%; max-width: 480px; max-height: 92vh;
+      background: var(--bg); width: 100%; max-width: 480px;
+      max-height: 88vh; max-height: 88dvh;
       overflow-y: auto; border-radius: 20px 20px 0 0;
       border: 1px solid var(--line); border-bottom: none;
-      padding: 18px 18px 28px; animation: slideup .22s ease-out;
+      padding: 18px 18px calc(32px + env(safe-area-inset-bottom, 0px));
+      animation: slideup .22s ease-out;
     }
     @keyframes slideup { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .sheet-handle { width: 36px; height: 4px; background: var(--surface-3); border-radius: 99px; margin: 0 auto 14px; }

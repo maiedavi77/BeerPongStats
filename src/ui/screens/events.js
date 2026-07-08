@@ -167,15 +167,41 @@ async function openCreateSheet() {
         </select>
       </div>
       <p style="font-size:0.68rem; color:var(--text-faint); margin:-0.4rem 0 0.8rem;">
-        Tournaments run as single-elimination brackets between teams
-        (set up on the Teams tab) and have no trichter.
-      </p>` : ''}
-      <div class="field" style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
-        <label class="label" for="ev-trichter" style="margin:0;">Trichter enabled</label>
-        <input type="checkbox" id="ev-trichter" checked style="width:20px; height:20px; accent-color:var(--amber);" />
+        Tournaments start with a group stage followed by a finals bracket
+        (teams are set up on the Teams tab) and have no trichter.
+      </p>
+      <div id="ev-cups-wrap" style="display:none;">
+        <div style="display:flex; gap:0.6rem;">
+          <div class="field" style="flex:1;">
+            <span class="label">Group stage cups</span>
+            <div class="pill-row" id="ev-group-cups">
+              <div class="pill" data-cups="6">6 cups</div>
+              <div class="pill sel" data-cups="10">10 cups</div>
+            </div>
+          </div>
+          <div class="field" style="flex:1;">
+            <span class="label">Finals cups</span>
+            <div class="pill-row" id="ev-finals-cups">
+              <div class="pill" data-cups="6">6 cups</div>
+              <div class="pill sel" data-cups="10">10 cups</div>
+            </div>
+          </div>
+        </div>
+        <p style="font-size:0.68rem; color:var(--text-faint); margin:-0.4rem 0 0.8rem;">
+          Defaults for bracket generation — can be changed again when
+          generating the group stage or finals.
+        </p>
+      </div>` : ''}
+      <div id="ev-trichter-wrap">
+        <div class="field" style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
+          <label class="label" for="ev-trichter" style="margin:0;">Trichter enabled</label>
+          <input type="checkbox" id="ev-trichter" checked style="width:20px; height:20px; accent-color:var(--amber);" />
+        </div>
+        <p style="font-size:0.68rem; color:var(--text-faint); margin:-0.4rem 0 0.8rem;">
+          When off, the Trichter tab is hidden for this event.
+        </p>
       </div>
       <p style="font-size:0.68rem; color:var(--text-faint); margin:-0.4rem 0 0.8rem;">
-        When off, the Trichter tab is hidden for this event.
         This event will run on your <b>${TIER_LABEL[currentUser?.tier ?? 'free']}</b> tier.
       </p>
       <div class="field">
@@ -213,17 +239,30 @@ async function openCreateSheet() {
   $std?.addEventListener('click', () => { oneTime = false; applyType(); });
   $ot?.addEventListener('click', () => { oneTime = true; applyType(); });
 
-  // Tournament (Team tier): forces trichter off
+  // Tournament (Team tier): trichter is not available → hide the option
+  // entirely and show the 6/10-cup defaults for group stage + finals.
   const $tournament = bd.querySelector('#ev-tournament');
   const $trichterCb = bd.querySelector('#ev-trichter');
+  const $trichterWrap = bd.querySelector('#ev-trichter-wrap');
+  const $cupsWrap = bd.querySelector('#ev-cups-wrap');
   $tournament?.addEventListener('change', () => {
-    if ($tournament.checked) {
-      $trichterCb.checked = false;
-      $trichterCb.disabled = true;
-    } else {
-      $trichterCb.disabled = false;
-    }
+    const on = $tournament.checked;
+    $trichterWrap.style.display = on ? 'none' : 'block';
+    if ($cupsWrap) $cupsWrap.style.display = on ? 'block' : 'none';
+    if (on) $trichterCb.checked = false;
   });
+
+  // 6/10 cup pill groups (tournament only)
+  const pickCups = sel => {
+    bd.querySelectorAll(`${sel} .pill`).forEach(p =>
+      p.addEventListener('click', () => {
+        bd.querySelectorAll(`${sel} .pill`).forEach(x => x.classList.remove('sel'));
+        p.classList.add('sel');
+      }));
+  };
+  pickCups('#ev-group-cups');
+  pickCups('#ev-finals-cups');
+  const cupsOf = sel => parseInt(bd.querySelector(`${sel} .pill.sel`)?.dataset.cups ?? '10');
 
   bd.querySelector('#ev-email-btn').addEventListener('click', async () => {
     const email = bd.querySelector('#ev-email-add').value.trim();
@@ -305,7 +344,11 @@ async function openCreateSheet() {
     const trackingMode = bd.querySelector('#ev-tracking')?.value ?? 'open';
     const { eventId, error } = oneTime
       ? await redeemOneTimeEvent(name, trichterEnabled)
-      : await createEvent(name, [...selected], { startsAt, endsAt, trichterEnabled, isTournament, trackingMode });
+      : await createEvent(name, [...selected], {
+          startsAt, endsAt, trichterEnabled, isTournament, trackingMode,
+          groupCupCount: isTournament ? cupsOf('#ev-group-cups') : 10,
+          finalsCupCount: isTournament ? cupsOf('#ev-finals-cups') : 10,
+        });
     if (error) {
       toast(`Could not create event: ${error}`, 'error');
       btn.disabled = false;

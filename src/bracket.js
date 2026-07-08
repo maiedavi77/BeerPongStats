@@ -25,6 +25,59 @@
  *   winnerTo = index into `all`; winnerSlot = 'a' | 'b'.
  */
 
+// ─── Group stage (round robin) ──────────────────────────────────────────────
+
+/**
+ * Distribute competitors into `numGroups` groups.
+ * Seeded competitors (1 = strongest) are snake-distributed so the strongest
+ * teams land in different groups; unseeded competitors are shuffled first.
+ *
+ * @param {Array<{id, name, seed?: number|null}>} competitors
+ * @param {number} numGroups
+ * @returns {Array<Array>} groups[groupNo] = competitors
+ */
+export function distributeGroups(competitors, numGroups) {
+  const seeded = competitors.filter(c => Number.isFinite(c.seed));
+  const unseeded = competitors.filter(c => !Number.isFinite(c.seed));
+  for (let i = unseeded.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [unseeded[i], unseeded[j]] = [unseeded[j], unseeded[i]];
+  }
+  const ordered = [...seeded.sort((x, y) => x.seed - y.seed), ...unseeded];
+
+  const groups = Array.from({ length: numGroups }, () => []);
+  // Snake: 0,1,2,3, 3,2,1,0, 0,1,2,3, …
+  ordered.forEach((c, i) => {
+    const lap = Math.floor(i / numGroups);
+    const pos = i % numGroups;
+    groups[lap % 2 === 0 ? pos : numGroups - 1 - pos].push(c);
+  });
+  return groups;
+}
+
+/**
+ * Round-robin schedule for one group (circle method).
+ * @param {Array} competitors
+ * @returns {Array<Array<[a, b]>>} rounds of pairings
+ */
+export function roundRobin(competitors) {
+  const arr = [...competitors];
+  if (arr.length < 2) return [];
+  if (arr.length % 2) arr.push(null); // bye slot
+  const n = arr.length;
+  const rounds = [];
+  for (let r = 0; r < n - 1; r++) {
+    const pairs = [];
+    for (let i = 0; i < n / 2; i++) {
+      const a = arr[i], b = arr[n - 1 - i];
+      if (a && b) pairs.push([a, b]);
+    }
+    rounds.push(pairs);
+    arr.splice(1, 0, arr.pop()); // rotate all but the first
+  }
+  return rounds;
+}
+
 /** Distribute byes so bye-receivers meet as late as possible (port of _assign_byes). */
 function assignByes(slots, begin, end, numByes) {
   if (numByes > 1) {

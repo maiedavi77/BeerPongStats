@@ -95,6 +95,10 @@ async function render(route) {
     return;
   }
 
+  // Close any open bottom sheets (e.g. "New event") — they are appended to
+  // document.body and would otherwise survive navigation.
+  document.querySelectorAll('.sheet-backdrop').forEach(el => el.remove());
+
   // Call previous screen's teardown
   if (typeof teardown === 'function') {
     try { teardown(); } catch (_) {}

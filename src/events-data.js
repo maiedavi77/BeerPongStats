@@ -116,7 +116,7 @@ export async function setEventArchived(eventId, archived) {
 export async function getEvent(eventId) {
   const { data, error } = await supabase
     .from('events')
-    .select('id, name, description, created_by, created_at, starts_at, ends_at, archived_at, required_tier, trichter_enabled, event_type, is_tournament, tracking_mode, creator:profiles!events_created_by_fkey(tier)')
+    .select('id, name, description, created_by, created_at, starts_at, ends_at, archived_at, required_tier, trichter_enabled, event_type, is_tournament, tracking_mode, group_cup_count, finals_cup_count, creator:profiles!events_created_by_fkey(tier)')
     .eq('id', eventId)
     .single();
   return { event: data, error: error?.message };
@@ -157,7 +157,7 @@ export async function amParticipant(eventId) {
  * Admin: create an event with members. The creator is always added with
  * role 'creator'; everyone else as 'participant'.
  */
-export async function createEvent(name, memberIds, { startsAt = null, endsAt = null, trichterEnabled = true, isTournament = false, trackingMode = 'open' } = {}) {
+export async function createEvent(name, memberIds, { startsAt = null, endsAt = null, trichterEnabled = true, isTournament = false, trackingMode = 'open', groupCupCount = 10, finalsCupCount = 10 } = {}) {
   const { data: event, error } = await supabase
     .from('events')
     .insert({
@@ -168,6 +168,8 @@ export async function createEvent(name, memberIds, { startsAt = null, endsAt = n
       trichter_enabled: isTournament ? false : trichterEnabled, // tournaments force trichter off
       is_tournament: isTournament,
       tracking_mode: trackingMode,
+      group_cup_count: groupCupCount,
+      finals_cup_count: finalsCupCount,
       // Snapshot: the event forever requires the creator's tier at creation
       // (enforced by RLS too — see migrations/2026-07-07-v4-phase1.sql).
       required_tier: currentUser.tier ?? 'free',
