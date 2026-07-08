@@ -18,7 +18,7 @@ const TURNSTILE_SITE_KEY = '0x4AAAAAADsPq9_Bj1iuMmGX';
 
 export default function render($el) {
   $el.innerHTML = `
-    <div style="
+    <div class="screen-narrow" style="
       display:flex; flex-direction:column;
       justify-content:center; min-height:100%;
       padding: 2rem 0;

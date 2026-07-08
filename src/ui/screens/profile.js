@@ -69,7 +69,7 @@ export default async function render($el, params) {
   const heat10 = heatFor(10);
 
   $el.innerHTML = `
-    <div>
+    <div class="screen-narrow">
       <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;">
         <button id="back-profile" class="btn-secondary" style="width:auto; padding:0.4rem 0.75rem; font-size:0.8rem;">←</button>
         <h1 style="font-size:2rem; color:var(--purple);">${eventId ? 'EVENT PROFILE' : 'PROFILE'}</h1>

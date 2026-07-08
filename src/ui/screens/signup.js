@@ -17,7 +17,7 @@ import { navigate } from '../../router.js';
 
 export default async function render($el) {
   $el.innerHTML = `
-    <div style="max-width:400px; margin:2rem auto; padding:0 1rem;">
+    <div class="screen-narrow" style="max-width:400px; margin:2rem auto; padding:0 1rem;">
       <h1 style="font-family:'Bebas Neue',sans-serif; font-size:3rem; color:var(--purple); text-align:center; margin-bottom:0.25rem;">RACKED</h1>
       <p style="text-align:center; color:var(--text-faint); font-size:0.85rem; margin-bottom:1.5rem;">Create your account</p>
 

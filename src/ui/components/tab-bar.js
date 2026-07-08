@@ -64,6 +64,45 @@ const style = `
     .tab.active { color: var(--purple); }
     .tab:hover:not(.active) { color: var(--text-dim); }
     .tab-icon { font-size: 1.2rem; line-height: 1; }
+
+    /* Desktop (≥1024px): bottom bar becomes a left sidebar
+       (#app switches to flex-direction: row-reverse — see index.html) */
+    @media (min-width: 1024px) {
+      #tab-bar {
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 4px;
+        width: 216px;
+        flex: none;
+        height: auto;
+        border-top: none;
+        border-right: 1px solid var(--surface-3);
+        padding: 20px 12px calc(20px + env(safe-area-inset-bottom, 0));
+        position: static;
+        overflow-y: auto;
+      }
+      #tab-bar::before {
+        content: 'RACKED';
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.9rem;
+        letter-spacing: 0.04em;
+        color: var(--purple);
+        padding: 0 14px 16px;
+        display: block;
+      }
+      .tab {
+        flex: none;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 11px;
+        padding: 11px 14px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+      }
+      .tab.active { background: var(--purple-dim); }
+      .tab:hover:not(.active) { background: var(--surface-2); }
+      .tab-icon { font-size: 1.05rem; }
+    }
   </style>`;
 
 /** Parse the current hash into { eventId, sub } when inside an event. */

@@ -10,7 +10,7 @@ import { navigate } from '../../router.js';
 
 export default function render($el) {
   $el.innerHTML = `
-    <div style="
+    <div class="screen-narrow" style="
       display:flex; flex-direction:column;
       justify-content:center; min-height:100%;
       padding: 2rem 0;

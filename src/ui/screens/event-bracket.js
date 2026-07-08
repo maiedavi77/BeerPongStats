@@ -98,7 +98,9 @@ export default async function render($el, ctx) {
 
       ${groupMatches.length ? `
       <div class="section-title" style="margin-top:0;">Group stage</div>
-      ${standings.map((table, g) => groupBlock(table, g)).join('')}
+      <div class="card-grid">
+        ${standings.map((table, g) => groupBlock(table, g)).join('')}
+      </div>
       ` : ''}
 
       ${finalsMatches.length ? `
@@ -142,7 +144,7 @@ export default async function render($el, ctx) {
       .filter(m => (m.group_no ?? 0) === g)
       .sort((a, b) => a.round - b.round || a.position - b.position);
     return `
-      <div class="card" style="margin-bottom:0.8rem; padding:0.7rem;">
+      <div class="card" style="padding:0.7rem;">
         <div style="font-family:'Bebas Neue',sans-serif; font-size:1.15rem; margin-bottom:0.4rem;">
           Group ${String.fromCharCode(65 + g)}
           <span style="font-size:0.7rem; font-family:'JetBrains Mono',monospace; color:var(--text-faint);">

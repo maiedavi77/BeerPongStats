@@ -25,7 +25,7 @@ export default async function render($el, params) {
           ? '<button id="new-event-btn" class="btn btn-primary" style="padding:0.5rem 1rem;">+ New event</button>'
           : ''}
       </div>
-      <div id="events-list">
+      <div id="events-list" class="card-grid">
         <div class="empty-state"><p style="color:var(--text-faint);">Loading…</p></div>
       </div>
     </div>`;
@@ -64,7 +64,7 @@ async function loadList(archived) {
   }
 
   $list.innerHTML = events.map(e => `
-    <div class="card" data-eid="${e.id}" style="margin-bottom:0.6rem; cursor:pointer;"
+    <div class="card" data-eid="${e.id}" style="cursor:pointer;"
       onmouseenter="this.style.background='var(--surface-2)'"
       onmouseleave="this.style.background='var(--surface)'">
       <div style="display:flex; align-items:center; justify-content:space-between;">

@@ -28,7 +28,7 @@ export default async function render($el, ctx) {
   const urls = await photoUrls(photos.map(p => p.storage_path));
 
   $el.innerHTML = `
-    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:0.6rem;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:0.6rem;">
       ${photos.map(p => {
         const url = urls.get(p.storage_path);
         if (!url) return '';

@@ -193,7 +193,8 @@ function renderGameView($el) {
     <div class="live-header">
       <button class="back-link" id="back-to-play">‹ Event</button>
       ${isActive ? `<span class="step-pill">${stepLabel(g)}</span>` : ''}
-    </div>`;
+    </div>
+    <div class="duo"><div class="duo-main">`;
 
   if (g.status === 'complete') {
     html += `<div class="result-banner">
@@ -299,12 +300,12 @@ function renderGameView($el) {
     </div>`;
   }
 
-  html += `<div class="feed">
+  html += `</div><div class="duo-side"><div class="feed">
     <div class="section-title">Event feed</div>
     ${_feed.slice(0, 40).map(l =>
       `<div class="feed-line"><span>${esc(l.text)}</span><span class="t">${timeShort(l.ts)}</span></div>`).join('')}
     ${_feed.length === 0 ? '<div class="empty">No throws yet</div>' : ''}
-  </div>`;
+  </div></div></div>`;
 
   $el.innerHTML = html;
   attachHandlers($el);

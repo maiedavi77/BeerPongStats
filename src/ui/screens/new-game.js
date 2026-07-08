@@ -42,7 +42,7 @@ export default async function render($el, params) {
   }
 
   $el.innerHTML = `
-    <div>
+    <div class="screen-narrow">
       <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem;">
         <button id="back-btn" class="btn-secondary" style="width:auto; padding:0.4rem 0.8rem;">← Back</button>
         <h1 style="font-size:2rem; color:var(--purple);">NEW GAME</h1>
