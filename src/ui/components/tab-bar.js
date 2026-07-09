@@ -84,7 +84,7 @@ const style = `
         flex-direction: column;
         justify-content: flex-start;
         gap: 4px;
-        width: 240px;
+        width: 216px;
         flex: none;
         height: auto;
         border-top: none;

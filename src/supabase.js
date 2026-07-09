@@ -36,6 +36,22 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+
+    // SECURITY: use sessionStorage instead of the default localStorage.
+    // localStorage persists across tabs and browser restarts, meaning an XSS
+    // payload (even a one-shot reflected one) could read the JWT from any tab.
+    // sessionStorage scopes the token to the current tab's session:
+    //   - Token is gone when the tab closes.
+    //   - Other tabs cannot read it (each tab gets its own storage).
+    //   - A new tab requires re-login (acceptable UX for a party game app).
+    //
+    // This does NOT prevent XSS within the same page from reading the token
+    // (only HttpOnly cookies can do that, which require a server-rendered host).
+    // But combined with our CSP (no inline scripts, restricted connect-src)
+    // and fully-escaped innerHTML sinks, the remaining attack surface is very
+    // narrow: an attacker would need to bypass the CSP AND find an unescaped
+    // sink AND exfiltrate within the same tab session.
+    storage: globalThis.sessionStorage,
   },
 });
 
