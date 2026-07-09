@@ -1,7 +1,7 @@
 /**
  * src/game-engine.js
  *
- * Pure beer pong rules engine — authoritative RACKED rules ported from
+ * Pure beer pong rules engine — authoritative RACKLY rules ported from
  * v1.052 (see SPEC.md). No DOM, no Supabase: fully unit-testable.
  *
  * Turn flow:

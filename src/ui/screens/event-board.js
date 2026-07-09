@@ -3,10 +3,10 @@
  *
  * Event sub-view: the leaderboard scoped to one event, with the same three
  * views as before (Games / Trichter / Overall). Guests appear in the Games
- * and Trichter views (marked, not clickable); the Overall RACKED Score is
+ * and Trichter views (marked, not clickable); the Overall RACKLY Score is
  * computed for registered players within this event only.
  *
- * RACKED Score: same formula as documented in CHANGES.md — same
+ * RACKLY Score: same formula as documented in CHANGES.md — same
  * formula, event-scoped inputs.
  */
 
@@ -51,7 +51,7 @@ let _eventName = '';
 export default async function render($el, ctx) {
   _eventId = ctx.eventId;
   _eventName = ctx.event?.name ?? 'event';
-  // Advanced stats (accuracy/cups/dodges + RACKED score) are governed by
+  // Advanced stats (accuracy/cups/dodges + RACKLY score) are governed by
   // the EVENT's tier — everyone in a pro/one-time event gets them.
   _advanced = hasAdvancedStats(ctx.event);
 
@@ -73,7 +73,7 @@ export default async function render($el, ctx) {
       <div id="sort-chips" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;"></div>
       ${!_advanced ? `
       <div style="font-size:0.7rem; color:var(--text-faint); margin:-0.5rem 0 0.75rem;">
-        🔒 Accuracy, cups, dodges and the RACKED score are Pro features —
+        🔒 Accuracy, cups, dodges and the RACKLY score are Pro features —
         this event runs on the Free tier.
       </div>` : ''}
       <div id="board-list"><div class="empty-state"><p style="color:var(--text-faint);">Loading…</p></div></div>
@@ -81,7 +81,7 @@ export default async function render($el, ctx) {
         ${canExportCsv() ? '⬇️ Export board as CSV' : '🔒 CSV export (Pro)'}
       </button>
       <div id="score-info" style="display:none; margin-top:1rem; font-size:0.72rem; color:var(--text-faint); line-height:1.6;" class="card">
-        <b style="color:var(--text-dim);">RACKED Score</b> = 1000 × (0.40·win rate + 0.25·accuracy +
+        <b style="color:var(--text-dim);">RACKLY Score</b> = 1000 × (0.40·win rate + 0.25·accuracy +
         0.15·activity + 0.10·trichter count + 0.10·trichter speed) — all within this event.
         Win rate and accuracy are smoothed so one lucky game can't top the board.
       </div>
@@ -115,7 +115,7 @@ function exportCsv() {
 
   const header = ['name', 'guest', 'games', 'wins', 'losses', 'win_pct',
     'throws', 'hits', 'accuracy_pct', 'cups', 'dodges',
-    'trichter_count', 'trichter_best_ms', 'trichter_avg_ms', 'racked_score'];
+    'trichter_count', 'trichter_best_ms', 'trichter_avg_ms', 'rackly_score'];
   const lines = [header.join(',')];
 
   for (const p of [..._players].sort((a, b) => b.winPct - a.winPct)) {
@@ -140,7 +140,7 @@ function exportCsv() {
   const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `racked-${_eventName.replace(/[^\w-]+/g, '_').toLowerCase()}-board.csv`;
+  a.download = `rackly-${_eventName.replace(/[^\w-]+/g, '_').toLowerCase()}-board.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }

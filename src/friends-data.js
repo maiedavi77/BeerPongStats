@@ -110,8 +110,8 @@ export async function shareFriendLink(username, displayName) {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: 'RACKED',
-        text: `Add ${displayName} on RACKED 🍺🏓`,
+        title: 'RACKLY',
+        text: `Add ${displayName} on RACKLY 🍺🏓`,
         url,
       });
       return { shared: true };

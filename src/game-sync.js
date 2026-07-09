@@ -15,11 +15,11 @@ import { supabase, currentUser } from './supabase.js';
 // ─── First-team memory (games table has no first_team column) ───────────────
 
 export function rememberFirstTeam(gameId, team) {
-  try { localStorage.setItem(`racked_first_team_${gameId}`, team); } catch { /* private mode */ }
+  try { localStorage.setItem(`rackly_first_team_${gameId}`, team); } catch { /* private mode */ }
 }
 
 export function recallFirstTeam(gameId) {
-  try { return localStorage.getItem(`racked_first_team_${gameId}`) ?? 'A'; } catch { return 'A'; }
+  try { return localStorage.getItem(`rackly_first_team_${gameId}`) ?? 'A'; } catch { return 'A'; }
 }
 
 // ─── Loading ────────────────────────────────────────────────────────────────

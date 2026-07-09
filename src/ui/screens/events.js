@@ -22,7 +22,7 @@ export default async function render($el, params) {
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem;">
         ${archived
           ? '<h1 style="font-size:1.5rem; letter-spacing:0.08em;">PAST EVENTS</h1>'
-          : `<span class="racked-wordmark" style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.4rem; color:var(--amber); letter-spacing:0.24em;">RACKED</span>`}
+          : `<span class="rackly-wordmark" style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.4rem; color:var(--amber); letter-spacing:0.24em;">RACKLY</span>`}
         ${!archived
           ? '<button id="new-event-btn" class="btn btn-primary" style="padding:0.5rem 1rem;">+ New event</button>'
           : '<a class="btn btn-ghost" href="#/" style="padding:0.45rem 0.9rem;">‹ Back</a>'}

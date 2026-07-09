@@ -274,7 +274,7 @@ export async function redeemOneTimeEvent(name, trichterEnabled = true) {
 // ─── Stats gating (v4 Phase 2) ───────────────────────────────────────────────
 
 /**
- * Advanced statistics (accuracy, cups, dodges, heatmaps, RACKED score)?
+ * Advanced statistics (accuracy, cups, dodges, heatmaps, RACKLY score)?
  * Inside an event the EVENT's tier governs everyone's experience;
  * with no event (root profile), the viewer's own tier governs.
  */

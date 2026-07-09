@@ -94,7 +94,7 @@ const style = `
         overflow-y: auto;
       }
       #tab-bar::before {
-        content: 'RACKED';
+        content: 'RACKLY';
         font-family: 'Syne', sans-serif;
         font-weight: 800;
         font-size: 1.45rem;
@@ -140,15 +140,15 @@ export function render($el) {
   // Remember the event context so New/Board keep working from /game/*,
   // the events list, the profile, … — the "fluent" part.
   if (ev) {
-    try { sessionStorage.setItem('racked_last_event', ev.eventId); } catch { /* private mode */ }
+    try { sessionStorage.setItem('rackly_last_event', ev.eventId); } catch { /* private mode */ }
   } else {
     let last = null;
-    try { last = sessionStorage.getItem('racked_last_event'); } catch { /* private mode */ }
+    try { last = sessionStorage.getItem('rackly_last_event'); } catch { /* private mode */ }
     if (last) ev = { eventId: last, sub: null };
   }
 
   let tournament = false;
-  try { tournament = sessionStorage.getItem('racked_event_tournament') === '1'; } catch { /* private mode */ }
+  try { tournament = sessionStorage.getItem('rackly_event_tournament') === '1'; } catch { /* private mode */ }
 
   // Context-aware targets (fall back to the events list without a context)
   const newHref = ev

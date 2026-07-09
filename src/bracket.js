@@ -14,7 +14,7 @@
  * `generate_first_round_clashes`), bracket depth distance
  * (`brackets_depth_distance`), rating-based distance-maximising placement
  * (`PairingsGenerator._assign_by_rating` / `_further_from_others`) and the
- * round-linking loop of `SingleEliminationGen.generate`. RACKED's
+ * round-linking loop of `SingleEliminationGen.generate`. RACKLY's
  * competitors are whole teams, so the same-club separation features
  * (`use_teams`) are intentionally not ported.
  *

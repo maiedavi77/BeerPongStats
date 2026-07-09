@@ -57,8 +57,8 @@ export default async function render($el, params) {
 
   // The bottom bar's "New"/"Board" tabs read the tournament flag
   try {
-    sessionStorage.setItem('racked_event_trichter', event.trichter_enabled === false ? '0' : '1');
-    sessionStorage.setItem('racked_event_tournament', event.is_tournament ? '1' : '0');
+    sessionStorage.setItem('rackly_event_trichter', event.trichter_enabled === false ? '0' : '1');
+    sessionStorage.setItem('rackly_event_tournament', event.is_tournament ? '1' : '0');
   } catch { /* private mode */ }
 
   // Redirect away from hidden tabs (deep links)

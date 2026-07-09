@@ -16,7 +16,7 @@ export default function render($el) {
       padding: 2rem 0;
     ">
       <div style="text-align:center; margin-bottom:2rem;">
-        <h1 style="font-size:3rem; color:var(--purple);">RACKED</h1>
+        <h1 style="font-size:3rem; color:var(--purple);">RACKLY</h1>
         <h2 style="font-size:1.5rem; color:var(--text); margin-top:0.5rem;">Set your password</h2>
         <p style="color:var(--text-dim); font-size:0.875rem; margin-top:0.5rem;">
           Choose a new password to get started.

@@ -17,7 +17,7 @@ import { esc } from '../../format.js';
 export default async function render($el) {
   $el.innerHTML = `
     <div class="empty-state" style="padding-top:4rem;">
-      <h2 style="font-size:2rem; color:var(--purple);">RACKED</h2>
+      <h2 style="font-size:2rem; color:var(--purple);">RACKLY</h2>
       <p style="margin-top:0.5rem; color:var(--text-dim);">Verifying your login…</p>
     </div>`;
 
