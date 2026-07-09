@@ -5,9 +5,9 @@
  *   Games    — per-player game stats (win %, wins, accuracy, cups, dodges)
  *   Trichter — trichter count, best time and average time (includes
  *              unregistered names, grouped case-insensitively)
- *   Overall  — composite RACKED Score, see below
+ *   Overall  — composite RACKLY Score, see below
  *
- * ── RACKED Score (0–1000) ────────────────────────────────────────────────
+ * ── RACKLY Score (0–1000) ────────────────────────────────────────────────
  *   score = 1000 · (0.40·W + 0.25·A + 0.15·V + 0.10·T + 0.10·S)
  *
  *   W  smoothed win rate  = (wins + 3) / (games + 6)
@@ -82,7 +82,7 @@ export default async function render($el) {
       <!-- Score explanation (Overall view) -->
       <div id="score-info" style="display:none; margin-top:1rem; font-size:0.72rem; color:var(--text-faint); line-height:1.6;"
         class="card">
-        <b style="color:var(--text-dim);">RACKED Score</b> = 1000 × (0.40·win rate + 0.25·accuracy +
+        <b style="color:var(--text-dim);">RACKLY Score</b> = 1000 × (0.40·win rate + 0.25·accuracy +
         0.15·activity + 0.10·trichter count + 0.10·trichter speed).<br>
         Win rate and accuracy are smoothed toward 50% / 30% so a single lucky
         game can't top the board. Activity caps at 20 games, trichter count at
@@ -197,7 +197,7 @@ function computeTrichterStats(trichters) {
   return Object.values(byPerson).map(r => ({ ...r, avg: Math.round(r.totalMs / r.count) }));
 }
 
-/** Composite RACKED Score — registered players with at least one game. */
+/** Composite RACKLY Score — registered players with at least one game. */
 function computeOverall(players, trichterRows) {
   const trichterByUid = new Map(trichterRows.filter(t => t.userId).map(t => [t.userId, t]));
   const bests = [...trichterByUid.values()].map(t => t.best).filter(b => Number.isFinite(b));
