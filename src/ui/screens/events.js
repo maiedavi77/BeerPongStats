@@ -19,20 +19,93 @@ export default async function render($el, params) {
 
   $el.innerHTML = `
     <div>
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-        <h1 style="font-size:2.5rem; color:var(--purple);">${archived ? 'PAST EVENTS' : 'EVENTS'}</h1>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem;">
+        ${archived
+          ? '<h1 style="font-size:1.5rem; letter-spacing:0.08em;">PAST EVENTS</h1>'
+          : `<span class="racked-wordmark" style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.4rem; color:var(--amber); letter-spacing:0.24em;">RACKED</span>`}
         ${!archived
           ? '<button id="new-event-btn" class="btn btn-primary" style="padding:0.5rem 1rem;">+ New event</button>'
-          : ''}
+          : '<a class="btn btn-ghost" href="#/" style="padding:0.45rem 0.9rem;">‹ Back</a>'}
+      </div>
+      ${!archived ? '<div id="live-hero"></div>' : ''}
+      <div style="font-size:0.62rem; font-weight:700; color:var(--text-faint); letter-spacing:0.22em; text-transform:uppercase; margin-bottom:0.6rem;">
+        ${archived ? 'Archived & expired' : 'My events'}
       </div>
       <div id="events-list" class="card-grid">
         <div class="empty-state"><p style="color:var(--text-faint);">Loading…</p></div>
       </div>
+      ${!archived ? '<div style="text-align:center; margin-top:1.1rem;"><a href="#/past" style="font-size:0.78rem; color:var(--text-faint);">Past events ›</a></div>' : ''}
     </div>`;
 
   document.getElementById('new-event-btn')?.addEventListener('click', openCreateSheet);
 
+  // Hero + list load in parallel; the hero renders as soon as it's ready.
+  if (!archived) loadLiveHero();
   await loadList(archived);
+}
+
+// ─── Live game hero (pinned on the start page) ──────────────────────────────
+
+async function loadLiveHero() {
+  const $hero = document.getElementById('live-hero');
+  if (!$hero) return;
+
+  // Most recent active game across the user's events (RLS scopes rows to
+  // events the user participates in).
+  const { data, error } = await supabase
+    .from('games')
+    .select(`id, event_id, started_at,
+             events!inner(name),
+             cups(team, status),
+             game_participants(team, profiles(display_name), event_temp_users(display_name))`)
+    .eq('status', 'active')
+    .order('started_at', { ascending: false })
+    .limit(1);
+  if (error || !data?.length) return; // no hero — the list stands alone
+  const g = data[0];
+  if (!document.getElementById('live-hero')) return; // navigated away
+
+  // Score = opponent cups downed
+  const downed = t => (g.cups ?? []).filter(c => c.team === t && c.status !== 'standing').length;
+  const scoreA = downed('B'), scoreB = downed('A');
+
+  const names = team => {
+    const list = (g.game_participants ?? [])
+      .filter(p => p.team === team)
+      .map(p => p.profiles?.display_name ?? p.event_temp_users?.display_name)
+      .filter(Boolean)
+      .map(n => n.split(' ')[0]);
+    return list.length ? list.slice(0, 3).join(' & ') : `Team ${team}`;
+  };
+
+  const mins = Math.max(1, Math.round((Date.now() - new Date(g.started_at).getTime()) / 60000));
+
+  $hero.innerHTML = `
+    <div id="hero-card" style="background:var(--amber-dim); border:1.5px solid rgba(184,120,14,0.25); border-radius:16px; padding:15px 16px; margin-bottom:1.2rem; cursor:pointer;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:7px;">
+          <div style="width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0; animation:livePulse 1.7s ease-in-out infinite;"></div>
+          <span style="font-size:0.62rem; font-weight:700; color:var(--green); letter-spacing:0.18em; text-transform:uppercase;">Live now</span>
+        </div>
+        <span style="font-size:0.66rem; color:var(--text-faint);">${esc(g.events?.name ?? '')} · ${mins} min</span>
+      </div>
+      <div style="display:flex; align-items:center; margin-bottom:14px;">
+        <div style="flex:1; text-align:center; min-width:0;">
+          <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:3.1rem; color:var(--red); line-height:1;">${scoreA}</div>
+          <div style="font-size:0.7rem; color:var(--text-faint); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(names('A'))}</div>
+        </div>
+        <div style="font-size:1.2rem; font-weight:700; color:rgba(226,217,204,0.14);">—</div>
+        <div style="flex:1; text-align:center; min-width:0;">
+          <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:3.1rem; color:var(--blue); line-height:1;">${scoreB}</div>
+          <div style="font-size:0.7rem; color:var(--text-faint); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(names('B'))}</div>
+        </div>
+      </div>
+      <div style="width:100%; background:var(--amber); border-radius:10px; padding:11px; text-align:center; font-family:'Syne',sans-serif; font-weight:800; font-size:0.76rem; color:#0f0d0a; letter-spacing:0.18em; box-shadow:0 4px 16px rgba(184,120,14,0.2);">
+        CONTINUE GAME →
+      </div>
+    </div>`;
+  document.getElementById('hero-card')?.addEventListener('click', () =>
+    navigate(`#/game/${g.id}`));
 }
 
 async function loadList(archived) {
@@ -63,23 +136,47 @@ async function loadList(archived) {
     return;
   }
 
-  $list.innerHTML = events.map(e => `
-    <div class="card" data-eid="${e.id}" style="cursor:pointer;"
+  // Live-game count per event (one query, RLS-scoped) → green dot + meta
+  const liveByEvent = new Map();
+  if (!archived && events.length) {
+    const { data: liveGames } = await supabase
+      .from('games').select('event_id')
+      .eq('status', 'active')
+      .in('event_id', events.map(e => e.id));
+    for (const g of liveGames ?? []) {
+      liveByEvent.set(g.event_id, (liveByEvent.get(g.event_id) ?? 0) + 1);
+    }
+  }
+
+  const iconFor = e => e.is_tournament ? '🏆' : e.event_type === 'one_time' ? '⚡' : '🎉';
+
+  $list.innerHTML = events.map(e => {
+    const live = liveByEvent.get(e.id) ?? 0;
+    const members = e.event_participants?.length ?? 0;
+    const meta = [
+      `${members} member${members === 1 ? '' : 's'}`,
+      e.starts_at ? `${shortDate(e.starts_at)}${e.ends_at ? ' – ' + shortDate(e.ends_at) : ''}` : shortDate(e.created_at),
+      live ? `${live} game${live === 1 ? '' : 's'} live` : null,
+    ].filter(Boolean).join(' · ');
+    return `
+    <div class="card" data-eid="${e.id}" style="cursor:pointer; padding:13px 15px; display:flex; align-items:center; gap:12px;"
       onmouseenter="this.style.background='var(--surface-2)'"
       onmouseleave="this.style.background='var(--surface)'">
-      <div style="display:flex; align-items:center; justify-content:space-between;">
-        <div style="min-width:0;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.4rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-            ${esc(e.name)}${e.event_type === 'one_time' ? ' <span style="font-size:0.7rem; color:var(--amber); vertical-align:middle;">⚡ 24h</span>' : ''}
-          </div>
-          <div style="font-size:0.72rem; color:var(--text-faint);">
-            ${e.event_participants?.length ?? 0} member${(e.event_participants?.length ?? 0) === 1 ? '' : 's'}
-            · ${e.starts_at ? `${shortDate(e.starts_at)}${e.ends_at ? ' – ' + shortDate(e.ends_at) : ''}` : shortDate(e.created_at)}
-          </div>
-        </div>
-        <span style="color:var(--text-faint); font-size:1.2rem;">›</span>
+      <div style="width:44px; height:44px; border-radius:12px; background:${e.is_tournament ? 'var(--amber-dim)' : live ? 'var(--green-dim)' : 'rgba(255,255,255,0.035)'}; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
+        ${iconFor(e)}
       </div>
-    </div>`).join('');
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:0.9rem; font-weight:700; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          ${esc(e.name)}
+        </div>
+        <div style="font-size:0.7rem; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${meta}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+        ${live ? '<div style="width:6px; height:6px; border-radius:50%; background:var(--green);"></div>' : ''}
+        <span style="color:var(--text-faint); font-size:1.05rem;">›</span>
+      </div>
+    </div>`;
+  }).join('');
 
   $list.querySelectorAll('[data-eid]').forEach(el => {
     el.addEventListener('click', () => navigate(`#/event/${el.dataset.eid}`));

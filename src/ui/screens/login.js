@@ -25,7 +25,7 @@ export default function render($el) {
       padding: 2rem 0;
     ">
       <div style="text-align:center; margin-bottom:2.5rem;">
-        <h1 style="font-size:4rem; color:var(--purple); letter-spacing:0.05em;">RACKED</h1>
+        <h1 style="font-size:2.6rem; color:var(--amber); letter-spacing:0.22em;">RACKED</h1>
         <p style="color:var(--text-dim); font-size:0.875rem;">Beer pong, tracked.</p>
       </div>
 

@@ -55,8 +55,7 @@ export default async function render($el, params) {
   const canManage = isAdmin || role === 'creator' || role === 'co_creator';
   const canHostGames = canManage || role === 'game_host' || isParticipant; // standard events: any participant
 
-  // Trichter can be disabled per event → hide the tab (bottom nav reads
-  // this flag; see tab-bar.js).
+  // The bottom bar's "New"/"Board" tabs read the tournament flag
   try {
     sessionStorage.setItem('racked_event_trichter', event.trichter_enabled === false ? '0' : '1');
     sessionStorage.setItem('racked_event_tournament', event.is_tournament ? '1' : '0');
@@ -72,35 +71,51 @@ export default async function render($el, params) {
     return;
   }
 
+  // Sub-navigation chips (replaces the old per-event bottom tabs):
+  // tournament events: Play · Teams · Bracket · Board · Gallery · History · Info
+  // standard events:   Play · Trichter · Board · Gallery · History · Info
+  const chips = TABS.filter(t => {
+    if (t.key === 'trichter') return event.trichter_enabled !== false && !event.is_tournament;
+    if (t.key === 'teams' || t.key === 'bracket') return event.is_tournament;
+    return true;
+  });
+
   $el.innerHTML = `
     <div>
-      <div class="live-header" style="margin-bottom:0.25rem;">
-        <button class="back-link" id="ev-back">‹ Events</button>
-        <button class="back-link" id="ev-info-btn" style="color:var(--purple);">ℹ️ Info</button>
+      <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+        <button class="back-link" id="ev-back" style="flex-shrink:0;">‹ Events</button>
+        <h1 style="font-size:1.35rem; letter-spacing:0.02em; margin:0; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;">
+          ${esc(event.name)}${event.archived_at ? ' <span style="font-size:0.75rem; color:var(--text-faint); vertical-align:middle;">📦</span>' : ''}
+        </h1>
       </div>
-      <h1 style="font-size:2rem; color:var(--purple); margin-bottom:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-        ${esc(event.name)}${event.archived_at ? ' <span style="font-size:0.85rem; color:var(--text-faint); vertical-align:middle;">📦 archived</span>' : ''}
-      </h1>
-      ${event.is_tournament ? `<div style="font-size:0.75rem; color:var(--purple); margin:-0.4rem 0 0.75rem;">🏆 Tournament${event.tracking_mode !== 'open' ? ` · tracking: ${({ hosts: 'hosts only', game_players: 'game players only', own_team: 'own team only' })[event.tracking_mode] ?? event.tracking_mode}` : ''}</div>` : ''}
+      ${event.is_tournament ? `<div style="font-size:0.72rem; color:var(--amber); margin:0 0 0.5rem;">🏆 Tournament${event.tracking_mode !== 'open' ? ` · tracking: ${({ hosts: 'hosts only', game_players: 'game players only', own_team: 'own team only' })[event.tracking_mode] ?? event.tracking_mode}` : ''}</div>` : ''}
       ${event.event_type === 'one_time' ? `
-      <div style="font-size:0.75rem; color:${eventExpired(event) ? 'var(--text-faint)' : 'var(--amber)'}; margin:-0.4rem 0 0.75rem;">
+      <div style="font-size:0.72rem; color:${eventExpired(event) ? 'var(--text-faint)' : 'var(--amber)'}; margin:0 0 0.5rem;">
         ⚡ One-time event · ${eventExpired(event)
           ? 'ended — read-only'
           : eventInGrace(event)
             ? 'grace period — finish running games'
             : `ends ${new Date(event.ends_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
       </div>` : ''}
+      <div class="ev-chips" style="display:flex; gap:0.4rem; overflow-x:auto; padding:0.15rem 0 0.7rem; margin:0 calc(-1 * var(--pad-screen)); padding-left:var(--pad-screen); padding-right:var(--pad-screen); -webkit-overflow-scrolling:touch; scrollbar-width:none;">
+        ${chips.map(t => `
+          <a href="#/event/${eventId}${t.key ? '/' + t.key : ''}"
+             style="flex-shrink:0; padding:0.42rem 0.85rem; border-radius:99px; font-size:0.74rem; font-weight:${t.key === tab.key ? 700 : 600}; text-decoration:none; white-space:nowrap;
+                    ${t.key === tab.key
+                      ? 'background:var(--amber-dim); border:1.5px solid rgba(184,120,14,0.4); color:var(--amber);'
+                      : 'background:rgba(255,255,255,0.024); border:1px solid var(--line); color:var(--text-faint);'}">
+            ${t.label}
+          </a>`).join('')}
+      </div>
       ${!eventSubscribed(event) ? `
       <div class="card" style="border:1px solid var(--red); margin-bottom:0.9rem; padding:0.7rem 0.9rem;">
-        <span style="color:#F2A093; font-size:0.82rem;">⚠️ Missing subscription — this event requires a tier its creator no longer has. It is read-only until the subscription is restored.</span>
+        <span style="color:#e8897c; font-size:0.82rem;">⚠️ Missing subscription — this event requires a tier its creator no longer has. It is read-only until the subscription is restored.</span>
       </div>` : ''}
       <div id="event-view"></div>
     </div>`;
 
   document.getElementById('ev-back').addEventListener('click', () =>
     navigate(event.archived_at ? '#/past' : '#/'));
-  document.getElementById('ev-info-btn').addEventListener('click', () =>
-    navigate(`#/event/${eventId}/info`));
 
   const $view = document.getElementById('event-view');
   const ctx = {

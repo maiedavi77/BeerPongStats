@@ -117,7 +117,7 @@ export default async function render($el, ctx) {
       </div>` : `
       ${groupMatches.length && canManage ? `
       <div class="card" style="margin-top:1.2rem; text-align:center;">
-        <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem;">Finals</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.2rem;">Finals</div>
         <p style="font-size:0.78rem; color:var(--text-faint); margin:0.35rem 0 0.8rem;">
           ${groupsDone
             ? 'The group stage is complete — generate the finals bracket from the standings.'
@@ -145,7 +145,7 @@ export default async function render($el, ctx) {
       .sort((a, b) => a.round - b.round || a.position - b.position);
     return `
       <div class="card" style="padding:0.7rem;">
-        <div style="font-family:'Bebas Neue',sans-serif; font-size:1.15rem; margin-bottom:0.4rem;">
+        <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.15rem; margin-bottom:0.4rem;">
           Group ${String.fromCharCode(65 + g)}
           <span style="font-size:0.7rem; font-family:'JetBrains Mono',monospace; color:var(--text-faint);">
             · ${gm[0]?.cup_count ?? 10} cups

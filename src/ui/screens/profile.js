@@ -84,7 +84,7 @@ export default async function render($el, params) {
               ${isOwnProfile ? '<span class="avatar-edit-badge" id="avatar-edit" title="Change picture">📷</span>' : ''}
             </div>
             <div style="min-width:0;">
-              <div id="display-name" style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(profile.display_name)}</div>
+              <div id="display-name" style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(profile.display_name)}</div>
               <div style="color:var(--text-dim); font-size:0.78rem;">
                 ${profile.username ? '@' + esc(profile.username) : (isOwnProfile ? '<span style="color:var(--amber);">no username yet</span>' : '')}
                 ${isOwnProfile ? '<button id="uname-edit" title="Change username" style="background:none; padding:0 0.2rem; font-size:0.75rem;">✏️</button>' : ''}
@@ -139,7 +139,7 @@ export default async function render($el, params) {
           ['Win %', `${stats.winPct}%`, 'var(--purple)'],
         ]).map(([label, val, color]) => `
           <div class="card" style="text-align:center; padding:0.75rem;">
-            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:${color};">${val}</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.75rem; color:${color};">${val}</div>
             <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">${label}</div>
           </div>`).join('')}
       </div>
@@ -149,15 +149,15 @@ export default async function render($el, params) {
         <span class="label">Trichter</span>
         <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-top:0.5rem;">
           <div style="text-align:center;">
-            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:var(--amber);">${tStats.count}</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.75rem; color:var(--amber);">${tStats.count}</div>
             <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Total</div>
           </div>
           <div style="text-align:center;">
-            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:var(--green);">${tStats.count ? formatDuration(tStats.best) : '—'}</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.75rem; color:var(--green);">${tStats.count ? formatDuration(tStats.best) : '—'}</div>
             <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Best</div>
           </div>
           <div style="text-align:center;">
-            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.75rem; color:var(--text);">${tStats.count ? formatDuration(tStats.avg) : '—'}</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.75rem; color:var(--text);">${tStats.count ? formatDuration(tStats.avg) : '—'}</div>
             <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Average</div>
           </div>
         </div>

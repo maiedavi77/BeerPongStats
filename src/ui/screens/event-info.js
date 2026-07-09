@@ -46,7 +46,7 @@ export default async function render($el, ctx) {
       <!-- Details -->
       <div class="card" style="margin-bottom:1rem;">
         <span class="label">Event</span>
-        <div style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; margin:0.25rem 0;">${esc(event.name)}</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.6rem; margin:0.25rem 0;">${esc(event.name)}</div>
         ${event.description ? `<p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:0.6rem;">${esc(event.description)}</p>` : ''}
         <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.8;">
           <div>📅 ${timeframe}</div>

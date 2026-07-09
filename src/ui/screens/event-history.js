@@ -59,7 +59,7 @@ export default async function render($el, ctx) {
         onmouseenter="this.style.background='var(--surface-2)'"
         onmouseleave="this.style.background='var(--surface)'">
         <div style="text-align:center; min-width:52px;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:${resultColor};">${resultLabel}</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.1rem; color:${resultColor};">${resultLabel}</div>
         </div>
         <div style="flex:1; min-width:0;">
           <div style="font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">

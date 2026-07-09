@@ -313,9 +313,9 @@ function rowShell(rank, inner, right, uid = null) {
       display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;
       ${uid ? 'cursor:pointer;' : ''}"
       ${uid ? `onmouseenter="this.style.background='var(--surface-2)'" onmouseleave="this.style.background='var(--surface)'"` : ''}>
-      <span style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--text-faint); min-width:1.5rem;">${rank}</span>
+      <span style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.5rem; color:var(--text-faint); min-width:1.5rem;">${rank}</span>
       <div style="flex:1; min-width:0;">${inner}</div>
-      <div style="text-align:right; font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--purple);">${right}</div>
+      <div style="text-align:right; font-family:'Syne',sans-serif;font-weight:800; font-size:1.5rem; color:var(--purple);">${right}</div>
     </div>`;
 }
 

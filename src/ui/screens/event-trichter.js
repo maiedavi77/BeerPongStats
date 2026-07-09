@@ -26,7 +26,7 @@ export default async function render($el, ctx) {
     <div>
       <div class="card" style="text-align:center; margin-bottom:1rem; padding:2rem 1rem;">
         <div id="timer-display" style="
-          font-family:'Bebas Neue',sans-serif; font-size:4rem; color:var(--text);
+          font-family:'Syne',sans-serif;font-weight:800; font-size:4rem; color:var(--text);
           letter-spacing:0.05em; line-height:1; margin-bottom:1rem;">0:00.0</div>
         ${isParticipant && ctx.open
           ? '<button id="start-stop-btn" class="btn-primary" style="font-size:1.1rem; padding:0.75rem 2rem;">Start</button>'
@@ -333,7 +333,7 @@ async function loadHistory(ctx) {
     return `
       <div class="card" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.4rem;">
         <span style="flex:1; font-weight:500; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(t.person_name)}</span>
-        <span style="font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--amber); letter-spacing:0.04em;">${formatDuration(t.duration_ms)}</span>
+        <span style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.4rem; color:var(--amber); letter-spacing:0.04em;">${formatDuration(t.duration_ms)}</span>
         ${hasPhoto
           ? `<button data-view-photo="${t.trichter_photos[0].storage_path}" title="View photo"
                style="background:none; font-size:1.1rem; padding:0.2rem;">🖼️</button>`

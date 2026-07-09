@@ -129,12 +129,12 @@ function renderGameCard(game, cups) {
       </div>
       <div style="display:flex; align-items:center; gap:1rem;">
         <div style="flex:1; text-align:center;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:2.5rem; color:var(--red); line-height:1;">${cups.A}</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:2.5rem; color:var(--red); line-height:1;">${cups.A}</div>
           <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${teamNames('A') || 'Team A'}</div>
         </div>
         <div style="color:var(--text-faint); font-size:0.875rem;">vs</div>
         <div style="flex:1; text-align:center;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:2.5rem; color:var(--blue); line-height:1;">${cups.B}</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:2.5rem; color:var(--blue); line-height:1;">${cups.B}</div>
           <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${teamNames('B') || 'Team B'}</div>
         </div>
       </div>

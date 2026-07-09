@@ -17,7 +17,7 @@ export default async function render($el) {
   $el.innerHTML = `
     <div>
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
-        <h1 style="font-size:2.5rem; color:var(--purple);">PEOPLE</h1>
+        <h1 style="font-size:1.6rem; letter-spacing:0.1em;">PEOPLE</h1>
         <button id="invite-btn" class="btn-primary" style="width:auto; padding:0.5rem 1rem;">
           + Invite
         </button>

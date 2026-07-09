@@ -49,7 +49,7 @@ export default async function render($el, { id: gameId }) {
         <div style="font-size:0.8rem; color:var(--text-faint); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">
           Winner
         </div>
-        <div style="font-family:'Bebas Neue',sans-serif; font-size:4rem; color:${winnerColor}; line-height:1;">
+        <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:4rem; color:${winnerColor}; line-height:1;">
           Team ${winner}
         </div>
         <div style="color:var(--text-dim); font-size:0.9rem; margin-top:0.25rem;">
@@ -92,17 +92,17 @@ export default async function render($el, { id: gameId }) {
       <!-- Throw count summary -->
       <div style="display:flex; gap:0.75rem; margin-bottom:1rem;">
         <div class="card" style="flex:1; text-align:center; padding:0.75rem;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text);">${throws.length}</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:2rem; color:var(--text);">${throws.length}</div>
           <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Total throws</div>
         </div>
         <div class="card" style="flex:1; text-align:center; padding:0.75rem;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--green);">
+          <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:2rem; color:var(--green);">
             ${throws.filter(t => t.outcome === 'hit' || t.outcome === 'dodge').length}
           </div>
           <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Cups hit</div>
         </div>
         <div class="card" style="flex:1; text-align:center; padding:0.75rem;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--amber);">
+          <div style="font-family:'Syne',sans-serif;font-weight:800; font-size:2rem; color:var(--amber);">
             ${throws.filter(t => t.outcome === 'dodge').length}
           </div>
           <div style="font-size:0.65rem; color:var(--text-faint); text-transform:uppercase;">Dodges</div>

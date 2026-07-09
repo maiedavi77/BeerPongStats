@@ -118,7 +118,7 @@ export default async function render($el, ctx) {
   const teamCard = t => `
     <div class="card" style="margin-bottom:0.75rem;">
       <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
-        <span style="font-family:'Bebas Neue',sans-serif; font-size:1.25rem; flex:1; min-width:0;
+        <span style="font-family:'Syne',sans-serif;font-weight:800; font-size:1.25rem; flex:1; min-width:0;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(t.name)}</span>
         ${canManage
           ? `<input type="number" min="1" data-seed="${t.id}" value="${t.seed ?? ''}" placeholder="seed"
