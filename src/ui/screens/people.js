@@ -105,10 +105,10 @@ async function loadUsers() {
   const $list = document.getElementById('user-list');
   if (!$list) return;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, email, display_name, is_admin, is_active, created_at, tier')
-    .order('created_at', { ascending: false });
+  // Sensitive fields (email, is_admin) are not readable via a table SELECT
+  // anymore — go through the security-definer admin_list_users() RPC, which
+  // returns [] for non-admins server-side.
+  const { data, error } = await supabase.rpc('admin_list_users');
 
   if (error) {
     toast('Failed to load users', 'error');

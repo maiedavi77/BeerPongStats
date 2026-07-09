@@ -89,7 +89,7 @@ export default async function render($el, params) {
                 ${profile.username ? '@' + esc(profile.username) : (isOwnProfile ? '<span style="color:var(--amber);">no username yet</span>' : '')}
                 ${isOwnProfile ? '<button id="uname-edit" title="Change username" style="background:none; padding:0 0.2rem; font-size:0.75rem;">✏️</button>' : ''}
               </div>
-              <div style="color:var(--text-faint); font-size:0.75rem;">${isOwnProfile ? esc(profile.email ?? '') : ''}</div>
+              <div style="color:var(--text-faint); font-size:0.75rem;">${isOwnProfile ? esc(currentUser?.email ?? '') : ''}</div>
               ${isOwnProfile && !eventId ? `
               <div style="margin-top:0.3rem;">
                 <span style="font-size:0.65rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
@@ -424,7 +424,10 @@ async function loadProfile(userId, eventId = null) {
   if (eventId) trichterQuery = trichterQuery.eq('event_id', eventId);
 
   const [profileRes, gamesRes, trichterRes] = await Promise.all([
-    supabase.from('profiles').select('id, email, display_name, username, avatar_path').eq('id', userId).single(),
+    // Only safe (broadly-granted) columns here. Own profile shows email from
+    // currentUser (hydrated via me()) since email is no longer readable via
+    // a direct table SELECT.
+    supabase.from('profiles').select('id, display_name, username, avatar_path').eq('id', userId).single(),
     gamesQuery,
     trichterQuery,
   ]);

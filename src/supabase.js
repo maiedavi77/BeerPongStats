@@ -67,11 +67,10 @@ function notifyUserListeners() {
  */
 async function hydrateProfile(authUser) {
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, display_name, username, is_admin, must_change_password, avatar_path, tier')
-      .eq('id', authUser.id)
-      .single();
+    // Sensitive columns (email, is_admin, must_change_password) are not
+    // readable via a table SELECT — GRANTs restrict them, so we call the
+    // security-definer me() RPC that scopes to auth.uid() server-side.
+    const { data, error } = await supabase.rpc('me').single();
 
     if (error) throw error;
     currentUser = data;
