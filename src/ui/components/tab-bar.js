@@ -91,7 +91,7 @@ const style = `
         border-right: 1px solid rgba(226, 217, 204, 0.08);
         padding: 20px 12px calc(20px + env(safe-area-inset-bottom, 0));
         position: static;
-        overflow-y: auto;
+        overflow-y: none;
       }
       #tab-bar::before {
         content: 'RACKLY';
