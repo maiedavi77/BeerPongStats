@@ -58,6 +58,9 @@ export default async function render($el) {
           <div id="su-error" class="error-msg" style="display:none; margin-bottom:0.75rem;"></div>
           <div id="su-success" style="display:none; margin-bottom:0.75rem; color:var(--green); font-size:0.85rem;"></div>
 
+          <!-- Cloudflare Turnstile (shown on submit) -->
+          <div id="su-turnstile" style="display:none; margin-bottom:1.25rem; min-height:65px;"></div>
+
           <button type="submit" class="btn-primary" id="su-btn">Create account</button>
         </form>
       </div>
@@ -71,6 +74,50 @@ export default async function render($el) {
   const btn = document.getElementById('su-btn');
   const errEl = document.getElementById('su-error');
   const okEl = document.getElementById('su-success');
+
+  // ─── Turnstile captcha ──────────────────────────────────────────────────
+  const TURNSTILE_SITE_KEY = '0x4AAAAAADsPq9_Bj1iuMmGX';
+  let turnstileToken = null;
+  let turnstileWidgetId = null;
+  let turnstileResolve = null;
+
+  function renderTurnstile() {
+    const container = document.getElementById('su-turnstile');
+    if (!container) return;
+    if (window.turnstile) {
+      turnstileWidgetId = window.turnstile.render(container, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'dark',
+        callback: (token) => {
+          turnstileToken = token;
+          btn.disabled = false;
+          if (turnstileResolve) { turnstileResolve(token); turnstileResolve = null; }
+        },
+        'expired-callback': () => { turnstileToken = null; btn.disabled = true; },
+        'error-callback': () => {
+          turnstileToken = null;
+          container.innerHTML = `<p style="color:var(--text-dim);font-size:0.8rem;">Security check unavailable. Disable your ad blocker and reload.</p>`;
+          if (turnstileResolve) { turnstileResolve(null); turnstileResolve = null; }
+        },
+      });
+    } else {
+      setTimeout(renderTurnstile, 500);
+    }
+  }
+
+  function waitForTurnstileToken() {
+    return new Promise(resolve => {
+      if (turnstileToken) resolve(turnstileToken);
+      else turnstileResolve = resolve;
+    });
+  }
+
+  function resetTurnstile() {
+    if (window.turnstile && turnstileWidgetId !== null) {
+      window.turnstile.reset(turnstileWidgetId);
+      turnstileToken = null;
+    }
+  }
 
   // Live username availability feedback (debounced)
   const $uname = document.getElementById('su-username');
@@ -121,16 +168,36 @@ export default async function render($el) {
       return fail(`@${usernameVal} is already taken.`);
     }
 
+    // Show Turnstile and wait for the user to complete the challenge
+    const tsContainer = document.getElementById('su-turnstile');
+    tsContainer.style.display = 'block';
+    if (!turnstileWidgetId) renderTurnstile();
+
+    btn.textContent = 'Complete security check…';
+    const token = await waitForTurnstileToken();
+    if (!token) {
+      btn.disabled = false;
+      btn.textContent = 'Create account';
+      return fail('Security check failed. Please try again.');
+    }
+
+    btn.textContent = 'Creating…';
     const { data, error } = await supabase.auth.signUp({
       email,
       password: pw,
-      options: { data: { display_name: name, username: usernameVal } },
+      options: {
+        data: { display_name: name, username: usernameVal },
+        captchaToken: token,
+      },
     });
 
     btn.disabled = false;
     btn.textContent = 'Create account';
 
-    if (error) return fail(error.message);
+    if (error) {
+      resetTurnstile();
+      return fail(error.message);
+    }
 
     if (data.session) {
       // Confirmations disabled → signed in immediately
