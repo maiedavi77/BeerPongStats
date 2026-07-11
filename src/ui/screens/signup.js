@@ -188,6 +188,7 @@ export default async function render($el) {
       options: {
         data: { display_name: name, username: usernameVal },
         captchaToken: token,
+        emailRedirectTo: `${window.location.origin}${window.location.pathname}#/auth/callback`,
       },
     });
 
